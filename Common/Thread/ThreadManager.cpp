@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #include <cstdio>
 #include <algorithm>
 #include <thread>
@@ -10,6 +12,10 @@
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Thread/ThreadManager.h"
+
+#if PPSSPP_PLATFORM(SWITCH)
+#include <switch.h>
+#endif
 
 // Threads and task scheduling
 //
@@ -138,6 +144,15 @@ static void WorkerThreadFunc(GlobalThreadContext *global, TaskThreadContext *thr
 		snprintf(thread->name, sizeof(thread->name), "PoolW IO %d", thread->index);
 	}
 	SetCurrentThreadName(thread->name);
+
+#if PPSSPP_PLATFORM(SWITCH)
+	// Pin worker threads to specific cores to avoid competing with main thread (core 0)
+	// Compute workers → core 1, IO workers → core 2
+	{
+		int core = (thread->type == TaskType::CPU_COMPUTE) ? 1 : 2;
+		svcSetThreadCoreMask(CUR_THREAD_HANDLE, core, (1ULL << core));
+	}
+#endif
 
 	// Should we do this on all threads?
 	if (thread->type == TaskType::IO_BLOCKING) {

@@ -13,7 +13,7 @@ GPUDIR			= $(CORE_DIR)/GPU
 EXTDIR			= $(CORE_DIR)/ext
 NATIVEDIR		= $(EXTDIR)/native
 ZSTDDIR                 = $(EXTDIR)/zstd/lib
-LIBRETROCOMMONDIR       = $(LIBRETRODIR)/libretro-common
+LIBRETROCOMMONDIR       = $(CORE_DIR)/libretro/libretro-common
 
 SOURCES_CXX   :=
 SOURCES_C     :=
@@ -46,8 +46,12 @@ INCFLAGS += \
 	-I$(EXTDIR)/libpng17 \
 	-I$(EXTDIR)/libkirk \
 	-I$(EXTDIR)/xbrz \
-	-I$(EXTDIR)/xxhash \
-	-I$(EXTDIR)/glew
+	-I$(EXTDIR)/xxhash
+
+# Only include GLEW when not using GLAD
+ifneq ($(USE_GLAD), 1)
+INCFLAGS += -I$(EXTDIR)/glew
+endif
 
 INCFLAGS += -I$(EXTDIR)/libzip
 SOURCES_C += \
@@ -176,7 +180,10 @@ else
 		$(EXTDIR)/libzip/zip_random_unix.c
 endif
 
+# Only include GLEW source when not using GLAD
+ifneq ($(USE_GLAD), 1)
 SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
+endif
 
 SOURCES_CXX += \
 	$(EXTDIR)/minimp3/minimp3.cpp
@@ -207,39 +214,39 @@ SOURCES_C += \
 
 INCFLAGS += -I$(EXTDIR)/lua
 
-SOURCES_C += \
-	$(EXTDIR)/lua/lapi.c \
-	$(EXTDIR)/lua/lauxlib.c \
-	$(EXTDIR)/lua/lbaselib.c \
-	$(EXTDIR)/lua/lcode.c \
-	$(EXTDIR)/lua/lcorolib.c \
-	$(EXTDIR)/lua/lctype.c \
-	$(EXTDIR)/lua/ldblib.c \
-	$(EXTDIR)/lua/ldebug.c \
-	$(EXTDIR)/lua/ldo.c \
-	$(EXTDIR)/lua/ldump.c \
-	$(EXTDIR)/lua/lfunc.c \
-	$(EXTDIR)/lua/lgc.c \
-	$(EXTDIR)/lua/linit.c \
-	$(EXTDIR)/lua/liolib.c \
-	$(EXTDIR)/lua/llex.c \
-	$(EXTDIR)/lua/lmathlib.c \
-	$(EXTDIR)/lua/lmem.c \
-	$(EXTDIR)/lua/loadlib.c \
-	$(EXTDIR)/lua/lobject.c \
-	$(EXTDIR)/lua/lopcodes.c \
-	$(EXTDIR)/lua/loslib.c \
-	$(EXTDIR)/lua/lparser.c \
-	$(EXTDIR)/lua/lstate.c \
-	$(EXTDIR)/lua/lstring.c \
-	$(EXTDIR)/lua/lstrlib.c \
-	$(EXTDIR)/lua/ltable.c \
-	$(EXTDIR)/lua/ltablib.c \
-	$(EXTDIR)/lua/ltm.c \
-	$(EXTDIR)/lua/lundump.c \
-	$(EXTDIR)/lua/lutf8lib.c \
-	$(EXTDIR)/lua/lvm.c \
-	$(EXTDIR)/lua/lzio.c
+# SOURCES_C += \
+# 	$(EXTDIR)/lua/lapi.c \
+# 	$(EXTDIR)/lua/lauxlib.c \
+# 	$(EXTDIR)/lua/lbaselib.c \
+# 	$(EXTDIR)/lua/lcode.c \
+# 	$(EXTDIR)/lua/lcorolib.c \
+# 	$(EXTDIR)/lua/lctype.c \
+# 	$(EXTDIR)/lua/ldblib.c \
+# 	$(EXTDIR)/lua/ldebug.c \
+# 	$(EXTDIR)/lua/ldo.c \
+# 	$(EXTDIR)/lua/ldump.c \
+# 	$(EXTDIR)/lua/lfunc.c \
+# 	$(EXTDIR)/lua/lgc.c \
+# 	$(EXTDIR)/lua/linit.c \
+# 	$(EXTDIR)/lua/liolib.c \
+# 	$(EXTDIR)/lua/llex.c \
+# 	$(EXTDIR)/lua/lmathlib.c \
+# 	$(EXTDIR)/lua/lmem.c \
+# 	$(EXTDIR)/lua/loadlib.c \
+# 	$(EXTDIR)/lua/lobject.c \
+# 	$(EXTDIR)/lua/lopcodes.c \
+# 	$(EXTDIR)/lua/loslib.c \
+# 	$(EXTDIR)/lua/lparser.c \
+# 	$(EXTDIR)/lua/lstate.c \
+# 	$(EXTDIR)/lua/lstring.c \
+# 	$(EXTDIR)/lua/lstrlib.c \
+# 	$(EXTDIR)/lua/ltable.c \
+# 	$(EXTDIR)/lua/ltablib.c \
+# 	$(EXTDIR)/lua/ltm.c \
+# 	$(EXTDIR)/lua/lundump.c \
+# 	$(EXTDIR)/lua/lutf8lib.c \
+# 	$(EXTDIR)/lua/lvm.c \
+# 	$(EXTDIR)/lua/lzio.c
 
 INCFLAGS += -I$(EXTDIR)/rcheevos/include
 
@@ -373,7 +380,9 @@ SOURCES_CXX += \
 ifeq ($(PLATFORM_EXT), android)
 COREFLAGS += -DHAVE_DLFCN_H
 else ifneq ($(PLATFORM_EXT), win32)
+ifneq ($(platform), libnx)
 COREFLAGS += -DHAVE_STRONG_GETAUXVAL
+endif
 endif
 ifneq (,$(findstring osx,$(platform)))
 ifneq (,$(findstring x86,$(TARGET_ARCH)))
@@ -401,8 +410,10 @@ SOURCES_C += \
 	$(EXTDIR)/cpu_features/src/hwcaps.c
 endif
 
+ifeq ($(HAVE_VULKAN),1)
 SOURCES_CXX += \
     $(EXTDIR)/vma/vk_mem_alloc.cpp
+endif
 
 SOURCES_C += $(EXTDIR)/sfmt19937/SFMT.c
 SOURCES_C   += $(EXTDIR)/xxhash.c
@@ -480,7 +491,10 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/OpenGL/GLRenderManager.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLMemory.cpp \
 	$(COMMONDIR)/GPU/OpenGL/GLQueueRunner.cpp \
-	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp \
+	$(COMMONDIR)/GPU/OpenGL/DataFormatGL.cpp
+
+ifeq ($(HAVE_VULKAN),1)
+SOURCES_CXX += \
 	$(COMMONDIR)/GPU/Vulkan/thin3d_vulkan.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanQueueRunner.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanRenderManager.cpp \
@@ -493,7 +507,10 @@ SOURCES_CXX += \
 	$(COMMONDIR)/GPU/Vulkan/VulkanMemory.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanDescSet.cpp \
 	$(COMMONDIR)/GPU/Vulkan/VulkanProfiler.cpp \
-	$(COMMONDIR)/GPU/Vulkan/VulkanBarrier.cpp \
+	$(COMMONDIR)/GPU/Vulkan/VulkanBarrier.cpp
+endif
+
+SOURCES_CXX += \
 	$(COMMONDIR)/Input/GestureDetector.cpp \
 	$(COMMONDIR)/Input/InputState.cpp \
 	$(COMMONDIR)/Math/curves.cpp \
@@ -685,6 +702,10 @@ else ifeq ($(PLATFORM_EXT), android)
 SOURCES_CXX += $(COMMONDIR)/MemArenaAndroid.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp \
 		   $(COMMONDIR)/Render/Text/draw_text_android.cpp
+else ifeq ($(platform), libnx)
+SOURCES_CXX += $(COMMONDIR)/MemArenaHorizon.cpp \
+	       $(COMMONDIR)/MemoryUtilHorizon.cpp \
+	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 else
 COREFLAGS += -DVK_USE_PLATFORM_XLIB_KHR
 SOURCES_CXX += $(COMMONDIR)/MemArenaPosix.cpp \
@@ -693,10 +714,12 @@ endif
 
 
 ifeq ($(TARGET_ARCH),arm64)
+ifneq ($(platform),libnx)
 SOURCES_CXX += \
 	  $(EXTDIR)/libadrenotools/src/driver.cpp \
 	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
 	  $(EXTDIR)/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
+endif
 endif
 
 SOURCES_C += \
@@ -912,9 +935,12 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/RecentFiles.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PathUtil.cpp \
-	       $(COREDIR)/Util/PortManager.cpp \
 	       $(COREDIR)/Util/GameDB.cpp \
 	       $(CORE_DIR)/UI/GameInfoCache.cpp
+
+ifneq ($(platform), libnx)
+SOURCES_CXX += $(COREDIR)/Util/PortManager.cpp
+endif
 
 SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
 
@@ -978,7 +1004,7 @@ ifeq ($(WITH_DYNAREC),1)
 
 			SOURCES_C += $(EXTDIR)/libpng17/arm/arm_init.c \
 				     $(EXTDIR)/libpng17/arm/filter_neon_intrinsics.c
-			ASMFILES   += $(EXTDIR)/libpng17/arm/filter_neon.S
+
 		endif
    else
 	ifneq (,$(findstring msvc,$(platform)))
@@ -1034,6 +1060,7 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 			 $(EXTDIR)/udis86/syn.c \
 			 $(EXTDIR)/udis86/udis86.c
 
+ifneq ($(platform), libnx)
 INCFLAGS += -I$(EXTDIR)/miniupnp-build -I$(EXTDIR)/miniupnp/miniupnpc/include -I$(EXTDIR)/miniupnp/miniupnpc/src
 SOURCES_C += \
     $(EXTDIR)/miniupnp/miniupnpc/src/addr_is_reserved.c \
@@ -1051,7 +1078,9 @@ SOURCES_C += \
     $(EXTDIR)/miniupnp/miniupnpc/src/upnpdev.c \
     $(EXTDIR)/miniupnp/miniupnpc/src/upnperrors.c \
     $(EXTDIR)/miniupnp/miniupnpc/src/upnpreplyparse.c
+endif
 
+ifeq ($(HAVE_VULKAN),1)
 SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
 	$(GPUDIR)/Vulkan/FramebufferManagerVulkan.cpp \
@@ -1063,6 +1092,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/VulkanUtil.cpp \
 	$(LIBRETRODIR)/LibretroVulkanContext.cpp \
 	$(LIBRETRODIR)/libretro_vulkan.cpp
+endif
 
 
 ifeq ($(PLATFORM_EXT), win32)

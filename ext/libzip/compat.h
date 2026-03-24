@@ -53,6 +53,8 @@
 
 #ifdef HAVE_STDBOOL_H
 #include <stdbool.h>
+#elif defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+#include <stdbool.h>
 #else
 typedef char bool;
 #define true 1
@@ -87,7 +89,8 @@ typedef char bool;
 #if defined(HAVE__DUP)
 #define dup _dup
 #endif
-/* crashes reported when using fdopen instead of _fdopen on Windows/Visual Studio 10/Win64 */
+/* crashes reported when using fdopen instead of _fdopen on Windows/Visual
+ * Studio 10/Win64 */
 #if defined(HAVE__FDOPEN)
 #define fdopen _fdopen
 #endif
@@ -184,11 +187,11 @@ typedef char bool;
 #endif
 
 #ifndef S_ISDIR
-#define S_ISDIR(mode) (((mode)&S_IFMT) == S_IFDIR)
+#define S_ISDIR(mode) (((mode) & S_IFMT) == S_IFDIR)
 #endif
 
 #ifndef S_ISREG
-#define S_ISREG(mode) (((mode)&S_IFMT) == S_IFREG)
+#define S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
 #endif
 
 #endif /* compat.h */

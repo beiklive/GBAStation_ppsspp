@@ -9,7 +9,10 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #define GL_BGRA_EXT 0x80E1
-#else // OpenGL
+#elif defined(USE_GLAD)
+// Use GLAD for dynamic GL function loading (e.g., on Nintendo Switch with Mesa)
+#include "glad.h"
+#else // OpenGL with GLEW
 #include "GL/glew.h"
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>
@@ -24,6 +27,8 @@
 #include "Common/GPU/OpenGL/gl3stub.h"
 #endif
 
+// Include compatibility defines for missing extension constants
+#include "Common/GPU/OpenGL/GLCommonCompat.h"
 
 #ifdef USING_GLES2
 
@@ -40,21 +45,22 @@
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
 
 typedef uint64_t EGLuint64NV;
-typedef EGLuint64NV(EGLAPIENTRYP PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC) (void);
-typedef EGLuint64NV(EGLAPIENTRYP PFNEGLGETSYSTEMTIMENVPROC) (void);
+typedef EGLuint64NV(EGLAPIENTRYP PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC)(void);
+typedef EGLuint64NV(EGLAPIENTRYP PFNEGLGETSYSTEMTIMENVPROC)(void);
 extern PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC eglGetSystemTimeFrequencyNV;
 extern PFNEGLGETSYSTEMTIMENVPROC eglGetSystemTimeNV;
 
-typedef GLvoid* (GL_APIENTRYP PFNGLMAPBUFFERPROC) (GLenum target, GLenum access);
+typedef GLvoid *(GL_APIENTRYP PFNGLMAPBUFFERPROC)(GLenum target, GLenum access);
 extern PFNGLMAPBUFFERPROC glMapBuffer;
 
-typedef void (EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC) (GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1, GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
+typedef void(EGLAPIENTRYP PFNGLDRAWTEXTURENVPROC)(
+    GLuint texture, GLuint sampler, GLfloat x0, GLfloat y0, GLfloat x1,
+    GLfloat y1, GLfloat z, GLfloat s0, GLfloat t0, GLfloat s1, GLfloat t1);
 extern PFNGLDRAWTEXTURENVPROC glDrawTextureNV;
 #if !PPSSPP_ARCH(ARM64)
-typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
-	GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1,
-	GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1,
-	GLbitfield mask, GLenum filter);
+typedef void(EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC)(
+    GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0,
+    GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter);
 #endif
 extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 

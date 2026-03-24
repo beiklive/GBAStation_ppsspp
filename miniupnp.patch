@@ -1,0 +1,4076 @@
+diff --git a/ext/miniupnp/miniupnpc/src/minissdpc.c b/miniupnpc/src/minissdpc.c
+index 57cb999..276afb9 100644
+--- a/ext/miniupnp/miniupnpc/src/minissdpc.c
++++ b/ext/miniupnp/miniupnpc/src/minissdpc.c
+@@ -7,23 +7,23 @@
+  * This software is subjet to the conditions detailed in the
+  * provided LICENCE file. */
+ #include <stdio.h>
+-#include <string.h>
+ #include <stdlib.h>
+-#include <time.h>
++#include <string.h>
+ #include <sys/types.h>
+-#if defined (__NetBSD__)
++#include <time.h>
++#if defined(__NetBSD__)
+ #include <net/if.h>
+ #endif
+ #if defined(_WIN32) || defined(__amigaos__) || defined(__amigaos4__)
+ #ifdef _WIN32
+-#include <winsock2.h>
+-#include <ws2tcpip.h>
++#include "win32_snprintf.h"
+ #include <io.h>
+ #include <iphlpapi.h>
+-#include "win32_snprintf.h"
++#include <winsock2.h>
++#include <ws2tcpip.h>
+ #if !defined(_MSC_VER)
+ #include <stdint.h>
+-#else /* !defined(_MSC_VER) */
++#else  /* !defined(_MSC_VER) */
+ typedef unsigned short uint16_t;
+ #endif /* !defined(_MSC_VER) */
+ #ifndef strncasecmp
+@@ -34,7 +34,8 @@ typedef unsigned short uint16_t;
+ #endif /* defined(_MSC_VER) && (_MSC_VER >= 1400) */
+ #endif /* #ifndef strncasecmp */
+ #if defined(WINAPI_FAMILY) && defined(WINAPI_FAMILY_PARTITION)
+-#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP
++#if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) &&                           \
++    WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP
+ #define in6addr_any in6addr_any_init
+ static const IN6_ADDR in6addr_any_init = {0};
+ #endif
+@@ -47,28 +48,33 @@ static const IN6_ADDR in6addr_any_init = {0};
+ #define uint16_t unsigned short
+ #endif /* defined(__amigaos__) */
+ /* Hack */
+-#define UNIX_PATH_LEN   108
++#define UNIX_PATH_LEN 108
+ struct sockaddr_un {
+   uint16_t sun_family;
+-  char     sun_path[UNIX_PATH_LEN];
++  char sun_path[UNIX_PATH_LEN];
+ };
+ #else /* defined(_WIN32) || defined(__amigaos__) || defined(__amigaos4__) */
+ #include <strings.h>
+-#include <unistd.h>
+-#include <sys/socket.h>
+ #include <sys/param.h>
++#include <sys/socket.h>
+ #include <sys/time.h>
++#include <unistd.h>
++#ifndef __SWITCH__
+ #include <sys/un.h>
+-#include <netinet/in.h>
++#endif
+ #include <arpa/inet.h>
+-#include <netdb.h>
+ #include <net/if.h>
++#include <netdb.h>
++#include <netinet/in.h>
+ #define closesocket close
+ #endif
+ 
+ #include "miniupnpc_socketdef.h"
+ 
+-#if !defined(__DragonFly__) && !defined(__OpenBSD__) && !defined(__NetBSD__) && !defined(__APPLE__) && !defined(_WIN32) && !defined(__CYGWIN__) && !defined(__sun) && !defined(__GNU__) && !defined(__FreeBSD_kernel__) && !defined(__HAIKU__)
++#if !defined(__DragonFly__) && !defined(__OpenBSD__) &&                        \
++    !defined(__NetBSD__) && !defined(__APPLE__) && !defined(_WIN32) &&         \
++    !defined(__CYGWIN__) && !defined(__sun) && !defined(__GNU__) &&            \
++    !defined(__FreeBSD_kernel__) && !defined(__HAIKU__)
+ #define HAS_IP_MREQN
+ #endif
+ 
+@@ -82,11 +88,10 @@ struct sockaddr_un {
+ #if defined(HAS_IP_MREQN) && defined(NEED_STRUCT_IP_MREQN)
+ /* Several versions of glibc don't define this structure,
+  * define it here and compile with CFLAGS NEED_STRUCT_IP_MREQN */
+-struct ip_mreqn
+-{
+-	struct in_addr	imr_multiaddr;		/* IP multicast address of group */
+-	struct in_addr	imr_address;		/* local IP address of interface */
+-	int		imr_ifindex;		/* Interface index */
++struct ip_mreqn {
++  struct in_addr imr_multiaddr; /* IP multicast address of group */
++  struct in_addr imr_address;   /* local IP address of interface */
++  int imr_ifindex;              /* Interface index */
+ };
+ #endif
+ 
+@@ -103,285 +108,278 @@ struct ip_mreqn
+ 
+ #include "codelength.h"
+ 
+-struct UPNPDev *
+-getDevicesFromMiniSSDPD(const char * devtype, const char * socketpath, int * error)
+-{
+-	struct UPNPDev * devlist = NULL;
+-	int s;
+-	int res;
+-
+-	s = connectToMiniSSDPD(socketpath);
+-	if (s < 0) {
+-		if (error)
+-			*error = s;
+-		return NULL;
+-	}
+-	res = requestDevicesFromMiniSSDPD(s, devtype);
+-	if (res < 0) {
+-		if (error)
+-			*error = res;
+-	} else {
+-		devlist = receiveDevicesFromMiniSSDPD(s, error);
+-	}
+-	disconnectFromMiniSSDPD(s);
+-	return devlist;
++struct UPNPDev *getDevicesFromMiniSSDPD(const char *devtype,
++                                        const char *socketpath, int *error) {
++  struct UPNPDev *devlist = NULL;
++  int s;
++  int res;
++
++  s = connectToMiniSSDPD(socketpath);
++  if (s < 0) {
++    if (error)
++      *error = s;
++    return NULL;
++  }
++  res = requestDevicesFromMiniSSDPD(s, devtype);
++  if (res < 0) {
++    if (error)
++      *error = res;
++  } else {
++    devlist = receiveDevicesFromMiniSSDPD(s, error);
++  }
++  disconnectFromMiniSSDPD(s);
++  return devlist;
+ }
+ 
+ /* macros used to read from unix socket */
+-#define READ_BYTE_BUFFER(c) \
+-	if((int)bufferindex >= n) { \
+-		n = read(s, buffer, sizeof(buffer)); \
+-		if(n<=0) break; \
+-		bufferindex = 0; \
+-	} \
+-	c = buffer[bufferindex++];
++#define READ_BYTE_BUFFER(c)                                                    \
++  if ((int)bufferindex >= n) {                                                 \
++    n = read(s, buffer, sizeof(buffer));                                       \
++    if (n <= 0)                                                                \
++      break;                                                                   \
++    bufferindex = 0;                                                           \
++  }                                                                            \
++  c = buffer[bufferindex++];
+ 
+ #ifndef MIN
+ #define MIN(a, b) (((a) < (b)) ? (a) : (b))
+ #endif /* MIN */
+ 
+-#define READ_COPY_BUFFER(dst, len) \
+-	for(l = len, p = (unsigned char *)dst; l > 0; ) { \
+-		unsigned int lcopy; \
+-		if((int)bufferindex >= n) { \
+-			n = read(s, buffer, sizeof(buffer)); \
+-			if(n<=0) break; \
+-			bufferindex = 0; \
+-		} \
+-		lcopy = MIN(l, (n - bufferindex)); \
+-		memcpy(p, buffer + bufferindex, lcopy); \
+-		l -= lcopy; \
+-		p += lcopy; \
+-		bufferindex += lcopy; \
+-	}
+-
+-#define READ_DISCARD_BUFFER(len) \
+-	for(l = len; l > 0; ) { \
+-		unsigned int lcopy; \
+-		if(bufferindex >= n) { \
+-			n = read(s, buffer, sizeof(buffer)); \
+-			if(n<=0) break; \
+-			bufferindex = 0; \
+-		} \
+-		lcopy = MIN(l, (n - bufferindex)); \
+-		l -= lcopy; \
+-		bufferindex += lcopy; \
+-	}
+-
+-int
+-connectToMiniSSDPD(const char * socketpath)
+-{
+-	int s;
+-	struct sockaddr_un addr;
++#define READ_COPY_BUFFER(dst, len)                                             \
++  for (l = len, p = (unsigned char *)dst; l > 0;) {                            \
++    unsigned int lcopy;                                                        \
++    if ((int)bufferindex >= n) {                                               \
++      n = read(s, buffer, sizeof(buffer));                                     \
++      if (n <= 0)                                                              \
++        break;                                                                 \
++      bufferindex = 0;                                                         \
++    }                                                                          \
++    lcopy = MIN(l, (n - bufferindex));                                         \
++    memcpy(p, buffer + bufferindex, lcopy);                                    \
++    l -= lcopy;                                                                \
++    p += lcopy;                                                                \
++    bufferindex += lcopy;                                                      \
++  }
++
++#define READ_DISCARD_BUFFER(len)                                               \
++  for (l = len; l > 0;) {                                                      \
++    unsigned int lcopy;                                                        \
++    if (bufferindex >= n) {                                                    \
++      n = read(s, buffer, sizeof(buffer));                                     \
++      if (n <= 0)                                                              \
++        break;                                                                 \
++      bufferindex = 0;                                                         \
++    }                                                                          \
++    lcopy = MIN(l, (n - bufferindex));                                         \
++    l -= lcopy;                                                                \
++    bufferindex += lcopy;                                                      \
++  }
++
++int connectToMiniSSDPD(const char *socketpath) {
++#ifdef __SWITCH__
++  return -1;
++#else
++  int s;
++  struct sockaddr_un addr;
+ #if defined(MINIUPNPC_SET_SOCKET_TIMEOUT) && !defined(__sun)
+-	struct timeval timeout;
++  struct timeval timeout;
+ #endif /* #ifdef MINIUPNPC_SET_SOCKET_TIMEOUT */
+ 
+-	s = socket(AF_UNIX, SOCK_STREAM, 0);
+-	if(s < 0)
+-	{
+-		/*syslog(LOG_ERR, "socket(unix): %m");*/
+-		perror("socket(unix)");
+-		return MINISSDPC_SOCKET_ERROR;
+-	}
++  s = socket(AF_UNIX, SOCK_STREAM, 0);
++  if (s < 0) {
++    /*syslog(LOG_ERR, "socket(unix): %m");*/
++    perror("socket(unix)");
++    return MINISSDPC_SOCKET_ERROR;
++  }
+ #if defined(MINIUPNPC_SET_SOCKET_TIMEOUT) && !defined(__sun)
+-	/* setting a 3 seconds timeout */
+-	/* not supported for AF_UNIX sockets under Solaris */
+-	timeout.tv_sec = 3;
+-	timeout.tv_usec = 0;
+-	if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) < 0)
+-	{
+-		perror("setsockopt SO_RCVTIMEO unix");
+-	}
+-	timeout.tv_sec = 3;
+-	timeout.tv_usec = 0;
+-	if(setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) < 0)
+-	{
+-		perror("setsockopt SO_SNDTIMEO unix");
+-	}
++  /* setting a 3 seconds timeout */
++  /* not supported for AF_UNIX sockets under Solaris */
++  timeout.tv_sec = 3;
++  timeout.tv_usec = 0;
++  if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval)) <
++      0) {
++    perror("setsockopt SO_RCVTIMEO unix");
++  }
++  timeout.tv_sec = 3;
++  timeout.tv_usec = 0;
++  if (setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(struct timeval)) <
++      0) {
++    perror("setsockopt SO_SNDTIMEO unix");
++  }
+ #endif /* #ifdef MINIUPNPC_SET_SOCKET_TIMEOUT */
+-	if(!socketpath)
+-		socketpath = "/var/run/minissdpd.sock";
+-	memset(&addr, 0, sizeof(addr));
+-	addr.sun_family = AF_UNIX;
+-	strncpy(addr.sun_path, socketpath, sizeof(addr.sun_path));
+-	/* TODO : check if we need to handle the EINTR */
+-	if(connect(s, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0)
+-	{
+-		/*syslog(LOG_WARNING, "connect(\"%s\"): %m", socketpath);*/
+-		close(s);
+-		return MINISSDPC_SOCKET_ERROR;
+-	}
+-	return s;
++  if (!socketpath)
++    socketpath = "/var/run/minissdpd.sock";
++  memset(&addr, 0, sizeof(addr));
++  addr.sun_family = AF_UNIX;
++  strncpy(addr.sun_path, socketpath, sizeof(addr.sun_path));
++  /* TODO : check if we need to handle the EINTR */
++  if (connect(s, (struct sockaddr *)&addr, sizeof(struct sockaddr_un)) < 0) {
++    /*syslog(LOG_WARNING, "connect(\"%s\"): %m", socketpath);*/
++    close(s);
++    return MINISSDPC_SOCKET_ERROR;
++  }
++  return s;
++#endif
+ }
+ 
+-int
+-disconnectFromMiniSSDPD(int s)
+-{
+-	if (close(s) < 0)
+-		return MINISSDPC_SOCKET_ERROR;
+-	return MINISSDPC_SUCCESS;
++int disconnectFromMiniSSDPD(int s) {
++  if (close(s) < 0)
++    return MINISSDPC_SOCKET_ERROR;
++  return MINISSDPC_SUCCESS;
+ }
+ 
+-int
+-requestDevicesFromMiniSSDPD(int s, const char * devtype)
+-{
+-	unsigned char buffer[256];
+-	unsigned char * p;
+-	unsigned int stsize, l;
+-
+-	stsize = strlen(devtype);
+-	if(stsize == 8 && 0 == memcmp(devtype, "ssdp:all", 8))
+-	{
+-		buffer[0] = 3;	/* request type 3 : everything */
+-	}
+-	else
+-	{
+-		buffer[0] = 1; /* request type 1 : request devices/services by type */
+-	}
+-	p = buffer + 1;
+-	l = stsize;	CODELENGTH(l, p);
+-	if(p + stsize > buffer + sizeof(buffer))
+-	{
+-		/* devtype is too long ! */
++int requestDevicesFromMiniSSDPD(int s, const char *devtype) {
++  unsigned char buffer[256];
++  unsigned char *p;
++  unsigned int stsize, l;
++
++  stsize = strlen(devtype);
++  if (stsize == 8 && 0 == memcmp(devtype, "ssdp:all", 8)) {
++    buffer[0] = 3; /* request type 3 : everything */
++  } else {
++    buffer[0] = 1; /* request type 1 : request devices/services by type */
++  }
++  p = buffer + 1;
++  l = stsize;
++  CODELENGTH(l, p);
++  if (p + stsize > buffer + sizeof(buffer)) {
++    /* devtype is too long ! */
+ #ifdef DEBUG
+-		fprintf(stderr, "devtype is too long ! stsize=%u sizeof(buffer)=%u\n",
+-		        stsize, (unsigned)sizeof(buffer));
++    fprintf(stderr, "devtype is too long ! stsize=%u sizeof(buffer)=%u\n",
++            stsize, (unsigned)sizeof(buffer));
+ #endif /* DEBUG */
+-		return MINISSDPC_INVALID_INPUT;
+-	}
+-	memcpy(p, devtype, stsize);
+-	p += stsize;
+-	if(write(s, buffer, p - buffer) < 0)
+-	{
+-		/*syslog(LOG_ERR, "write(): %m");*/
+-		perror("minissdpc.c: write()");
+-		return MINISSDPC_SOCKET_ERROR;
+-	}
+-	return MINISSDPC_SUCCESS;
++    return MINISSDPC_INVALID_INPUT;
++  }
++  memcpy(p, devtype, stsize);
++  p += stsize;
++  if (write(s, buffer, p - buffer) < 0) {
++    /*syslog(LOG_ERR, "write(): %m");*/
++    perror("minissdpc.c: write()");
++    return MINISSDPC_SOCKET_ERROR;
++  }
++  return MINISSDPC_SUCCESS;
+ }
+ 
+-struct UPNPDev *
+-receiveDevicesFromMiniSSDPD(int s, int * error)
+-{
+-	struct UPNPDev * tmp;
+-	struct UPNPDev * devlist = NULL;
+-	unsigned char buffer[256];
+-	ssize_t n;
+-	unsigned char * p;
+-	unsigned char * url;
+-	unsigned char * st;
+-	unsigned int bufferindex;
+-	unsigned int i, ndev;
+-	unsigned int urlsize, stsize, usnsize, l;
+-
+-	n = read(s, buffer, sizeof(buffer));
+-	if(n<=0)
+-	{
+-		perror("minissdpc.c: read()");
+-		if (error)
+-			*error = MINISSDPC_SOCKET_ERROR;
+-		return NULL;
+-	}
+-	ndev = buffer[0];
+-	bufferindex = 1;
+-	for(i = 0; i < ndev; i++)
+-	{
+-		DECODELENGTH_READ(urlsize, READ_BYTE_BUFFER);
+-		if(n<=0) {
+-			if (error)
+-				*error = MINISSDPC_INVALID_SERVER_REPLY;
+-			return devlist;
+-		}
++struct UPNPDev *receiveDevicesFromMiniSSDPD(int s, int *error) {
++  struct UPNPDev *tmp;
++  struct UPNPDev *devlist = NULL;
++  unsigned char buffer[256];
++  ssize_t n;
++  unsigned char *p;
++  unsigned char *url;
++  unsigned char *st;
++  unsigned int bufferindex;
++  unsigned int i, ndev;
++  unsigned int urlsize, stsize, usnsize, l;
++
++  n = read(s, buffer, sizeof(buffer));
++  if (n <= 0) {
++    perror("minissdpc.c: read()");
++    if (error)
++      *error = MINISSDPC_SOCKET_ERROR;
++    return NULL;
++  }
++  ndev = buffer[0];
++  bufferindex = 1;
++  for (i = 0; i < ndev; i++) {
++    DECODELENGTH_READ(urlsize, READ_BYTE_BUFFER);
++    if (n <= 0) {
++      if (error)
++        *error = MINISSDPC_INVALID_SERVER_REPLY;
++      return devlist;
++    }
+ #ifdef DEBUG
+-		printf("  urlsize=%u", urlsize);
++    printf("  urlsize=%u", urlsize);
+ #endif /* DEBUG */
+-		url = malloc(urlsize);
+-		if(url == NULL) {
+-			if (error)
+-				*error = MINISSDPC_MEMORY_ERROR;
+-			return devlist;
+-		}
+-		READ_COPY_BUFFER(url, urlsize);
+-		if(n<=0) {
+-			if (error)
+-				*error = MINISSDPC_INVALID_SERVER_REPLY;
+-			goto free_url_and_return;
+-		}
+-		DECODELENGTH_READ(stsize, READ_BYTE_BUFFER);
+-		if(n<=0) {
+-			if (error)
+-				*error = MINISSDPC_INVALID_SERVER_REPLY;
+-			goto free_url_and_return;
+-		}
++    url = malloc(urlsize);
++    if (url == NULL) {
++      if (error)
++        *error = MINISSDPC_MEMORY_ERROR;
++      return devlist;
++    }
++    READ_COPY_BUFFER(url, urlsize);
++    if (n <= 0) {
++      if (error)
++        *error = MINISSDPC_INVALID_SERVER_REPLY;
++      goto free_url_and_return;
++    }
++    DECODELENGTH_READ(stsize, READ_BYTE_BUFFER);
++    if (n <= 0) {
++      if (error)
++        *error = MINISSDPC_INVALID_SERVER_REPLY;
++      goto free_url_and_return;
++    }
+ #ifdef DEBUG
+-		printf("   stsize=%u", stsize);
++    printf("   stsize=%u", stsize);
+ #endif /* DEBUG */
+-		st = malloc(stsize);
+-		if (st == NULL) {
+-			if (error)
+-				*error = MINISSDPC_MEMORY_ERROR;
+-			goto free_url_and_return;
+-		}
+-		READ_COPY_BUFFER(st, stsize);
+-		if(n<=0) {
+-			if (error)
+-				*error = MINISSDPC_INVALID_SERVER_REPLY;
+-			goto free_url_and_st_and_return;
+-		}
+-		DECODELENGTH_READ(usnsize, READ_BYTE_BUFFER);
+-		if(n<=0) {
+-			if (error)
+-				*error = MINISSDPC_INVALID_SERVER_REPLY;
+-			goto free_url_and_st_and_return;
+-		}
++    st = malloc(stsize);
++    if (st == NULL) {
++      if (error)
++        *error = MINISSDPC_MEMORY_ERROR;
++      goto free_url_and_return;
++    }
++    READ_COPY_BUFFER(st, stsize);
++    if (n <= 0) {
++      if (error)
++        *error = MINISSDPC_INVALID_SERVER_REPLY;
++      goto free_url_and_st_and_return;
++    }
++    DECODELENGTH_READ(usnsize, READ_BYTE_BUFFER);
++    if (n <= 0) {
++      if (error)
++        *error = MINISSDPC_INVALID_SERVER_REPLY;
++      goto free_url_and_st_and_return;
++    }
+ #ifdef DEBUG
+-		printf("   usnsize=%u\n", usnsize);
++    printf("   usnsize=%u\n", usnsize);
+ #endif /* DEBUG */
+-		tmp = (struct UPNPDev *)malloc(sizeof(struct UPNPDev)+urlsize+stsize+usnsize+3);
+-		if(tmp == NULL) {
+-			if (error)
+-				*error = MINISSDPC_MEMORY_ERROR;
+-			goto free_url_and_st_and_return;
+-		}
+-		tmp->pNext = devlist;
+-		tmp->descURL = tmp->buffer;
+-		tmp->st = tmp->buffer + 1 + urlsize;
+-		memcpy(tmp->buffer, url, urlsize);
+-		tmp->buffer[urlsize] = '\0';
+-		memcpy(tmp->st, st, stsize);
+-		tmp->buffer[urlsize+1+stsize] = '\0';
+-		free(url);
+-		free(st);
+-		url = NULL;
+-		st = NULL;
+-		tmp->usn = tmp->buffer + 1 + urlsize + 1 + stsize;
+-		READ_COPY_BUFFER(tmp->usn, usnsize);
+-		if(n<=0) {
+-			if (error)
+-				*error = MINISSDPC_INVALID_SERVER_REPLY;
+-			goto free_tmp_and_return;
+-		}
+-		tmp->buffer[urlsize+1+stsize+1+usnsize] = '\0';
+-		tmp->scope_id = 0;	/* default value. scope_id is not available with MiniSSDPd */
+-		devlist = tmp;
+-	}
+-	if (error)
+-		*error = MINISSDPC_SUCCESS;
+-	return devlist;
++    tmp = (struct UPNPDev *)malloc(sizeof(struct UPNPDev) + urlsize + stsize +
++                                   usnsize + 3);
++    if (tmp == NULL) {
++      if (error)
++        *error = MINISSDPC_MEMORY_ERROR;
++      goto free_url_and_st_and_return;
++    }
++    tmp->pNext = devlist;
++    tmp->descURL = tmp->buffer;
++    tmp->st = tmp->buffer + 1 + urlsize;
++    memcpy(tmp->buffer, url, urlsize);
++    tmp->buffer[urlsize] = '\0';
++    memcpy(tmp->st, st, stsize);
++    tmp->buffer[urlsize + 1 + stsize] = '\0';
++    free(url);
++    free(st);
++    url = NULL;
++    st = NULL;
++    tmp->usn = tmp->buffer + 1 + urlsize + 1 + stsize;
++    READ_COPY_BUFFER(tmp->usn, usnsize);
++    if (n <= 0) {
++      if (error)
++        *error = MINISSDPC_INVALID_SERVER_REPLY;
++      goto free_tmp_and_return;
++    }
++    tmp->buffer[urlsize + 1 + stsize + 1 + usnsize] = '\0';
++    tmp->scope_id =
++        0; /* default value. scope_id is not available with MiniSSDPd */
++    devlist = tmp;
++  }
++  if (error)
++    *error = MINISSDPC_SUCCESS;
++  return devlist;
+ 
+ free_url_and_st_and_return:
+-	free(st);
++  free(st);
+ free_url_and_return:
+-	free(url);
+-	return devlist;
++  free(url);
++  return devlist;
+ 
+ free_tmp_and_return:
+-	free(tmp);
+-	return devlist;
++  free(tmp);
++  return devlist;
+ }
+ 
+-#endif /* !(defined(_WIN32) || defined(__amigaos__) || defined(__amigaos4__)) */
++#endif /* !(defined(_WIN32) || defined(__amigaos__) || defined(__amigaos4__))  \
++        */
+ 
+ /* parseMSEARCHReply()
+  * the last 4 arguments are filled during the parsing :
+@@ -389,66 +387,57 @@ free_tmp_and_return:
+  *    - st/stsize : "st:" field of the SSDP reply packet.
+  *    - usn/usnsize : "usn:" filed of the SSDP reply packet
+  * The strings are NOT null terminated */
+-static void
+-parseMSEARCHReply(const char * reply, int size,
+-                  const char * * location, int * locationsize,
+-			      const char * * st, int * stsize,
+-			      const char * * usn, int * usnsize)
+-{
+-	int a, b, i;
+-	i = 0;
+-	a = i;	/* start of the line */
+-	b = 0;	/* end of the "header" (position of the colon) */
+-	while(i<size)
+-	{
+-		switch(reply[i])
+-		{
+-		case ':':
+-				if(b==0)
+-				{
+-					b = i; /* end of the "header" */
+-					/*for(j=a; j<b; j++)
+-					{
+-						putchar(reply[j]);
+-					}
+-					*/
+-				}
+-				break;
+-		case '\x0a':
+-		case '\x0d':
+-				if(b!=0)
+-				{
+-					/*for(j=b+1; j<i; j++)
+-					{
+-						putchar(reply[j]);
+-					}
+-					putchar('\n');*/
+-					/* skip the colon and white spaces */
+-					do { b++; } while(reply[b]==' ');
+-					if(0==strncasecmp(reply+a, "location:", 9))
+-					{
+-						*location = reply+b;
+-						*locationsize = i-b;
+-					}
+-					else if(0==strncasecmp(reply+a, "st:", 3))
+-					{
+-						*st = reply+b;
+-						*stsize = i-b;
+-					}
+-					else if(0==strncasecmp(reply+a, "usn:", 4))
+-					{
+-						*usn = reply+b;
+-						*usnsize = i-b;
+-					}
+-					b = 0;
+-				}
+-				a = i+1;
+-				break;
+-		default:
+-				break;
+-		}
+-		i++;
+-	}
++static void parseMSEARCHReply(const char *reply, int size,
++                              const char **location, int *locationsize,
++                              const char **st, int *stsize, const char **usn,
++                              int *usnsize) {
++  int a, b, i;
++  i = 0;
++  a = i; /* start of the line */
++  b = 0; /* end of the "header" (position of the colon) */
++  while (i < size) {
++    switch (reply[i]) {
++    case ':':
++      if (b == 0) {
++        b = i; /* end of the "header" */
++               /*for(j=a; j<b; j++)
++               {
++                       putchar(reply[j]);
++               }
++               */
++      }
++      break;
++    case '\x0a':
++    case '\x0d':
++      if (b != 0) {
++        /*for(j=b+1; j<i; j++)
++        {
++                putchar(reply[j]);
++        }
++        putchar('\n');*/
++        /* skip the colon and white spaces */
++        do {
++          b++;
++        } while (reply[b] == ' ');
++        if (0 == strncasecmp(reply + a, "location:", 9)) {
++          *location = reply + b;
++          *locationsize = i - b;
++        } else if (0 == strncasecmp(reply + a, "st:", 3)) {
++          *st = reply + b;
++          *stsize = i - b;
++        } else if (0 == strncasecmp(reply + a, "usn:", 4)) {
++          *usn = reply + b;
++          *usnsize = i - b;
++        }
++        b = 0;
++      }
++      a = i + 1;
++      break;
++    default:
++      break;
++    }
++    i++;
++  }
+ }
+ 
+ #if defined(CLOCK_MONOTONIC_FAST)
+@@ -457,43 +446,39 @@ parseMSEARCHReply(const char * reply, int size,
+ #define UPNP_CLOCKID CLOCK_MONOTONIC
+ #endif
+ 
+-static int upnp_gettimeofday(struct timeval * tv)
+-{
++static int upnp_gettimeofday(struct timeval *tv) {
+ #if defined(_WIN32)
+ #if _WIN32_WINNT >= 0x0600 // _WIN32_WINNT_VISTA
+-	ULONGLONG ts = GetTickCount64();
++  ULONGLONG ts = GetTickCount64();
+ #else
+-	DWORD ts = GetTickCount();
++  DWORD ts = GetTickCount();
+ #endif
+-	tv->tv_sec = (long)(ts / 1000);
+-	tv->tv_usec = (ts % 1000) * 1000;
+-	return 0; /* success */
++  tv->tv_sec = (long)(ts / 1000);
++  tv->tv_usec = (ts % 1000) * 1000;
++  return 0; /* success */
+ #elif defined(CLOCK_MONOTONIC_FAST) || defined(CLOCK_MONOTONIC)
+ #if defined(__APPLE__)
+ #if defined(__clang__)
+-	if (__builtin_available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)) {
+-#else /* !defined(__clang__) */
+-	if (clock_gettime != NULL) {
++  if (__builtin_available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)) {
++#else  /* !defined(__clang__) */
++  if (clock_gettime != NULL) {
+ #endif /* defined(__clang__) */
+ #endif /* defined(__APPLE__) */
+-		struct timespec ts;
+-		int ret_code = clock_gettime(UPNP_CLOCKID, &ts);
+-		if (ret_code == 0)
+-		{
+-			tv->tv_sec = ts.tv_sec;
+-			tv->tv_usec = ts.tv_nsec / 1000;
+-		}
+-		return ret_code;
++    struct timespec ts;
++    int ret_code = clock_gettime(UPNP_CLOCKID, &ts);
++    if (ret_code == 0) {
++      tv->tv_sec = ts.tv_sec;
++      tv->tv_usec = ts.tv_nsec / 1000;
++    }
++    return ret_code;
+ #if defined(__APPLE__)
+-	}
+-	else
+-	{
+-		/* fall-back for earlier Apple platforms */
+-		return gettimeofday(tv, NULL);
+-	}
++  } else {
++    /* fall-back for earlier Apple platforms */
++    return gettimeofday(tv, NULL);
++  }
+ #endif /* defined(__APPLE__) */
+ #else
+-	return gettimeofday(tv, NULL);
++  return gettimeofday(tv, NULL);
+ #endif
+ }
+ /* port upnp discover : SSDP protocol */
+@@ -514,507 +499,529 @@ static int upnp_gettimeofday(struct timeval * tv)
+  * UDA v1.1 says :
+  *   The TTL for the IP packet SHOULD default to 2 and
+  *   SHOULD be configurable. */
+-struct UPNPDev *
+-ssdpDiscoverDevices(const char * const deviceTypes[],
+-                    int delay, const char * multicastif,
+-                    int localport,
+-                    int ipv6, unsigned char ttl,
+-                    int * error,
+-                    int searchalltypes)
+-{
+-	struct UPNPDev * tmp;
+-	struct UPNPDev * devlist = NULL;
+-	unsigned int scope_id = 0;
+-	int opt = 1;
+-	static const char MSearchMsgFmt[] =
+-	"M-SEARCH * HTTP/1.1\r\n"
+-	"HOST: %s:" XSTR(SSDP_PORT) "\r\n"
+-	"ST: %s\r\n"
+-	"MAN: \"ssdp:discover\"\r\n"
+-	"MX: %u\r\n"
+-	"\r\n";
+-	int deviceIndex;
+-	char bufr[1536];	/* reception and emission buffer */
+-	SOCKET sudp;
+-	int n;
+-	struct sockaddr_storage sockudp_r;
+-	unsigned int mx;
++struct UPNPDev *ssdpDiscoverDevices(const char *const deviceTypes[], int delay,
++                                    const char *multicastif, int localport,
++                                    int ipv6, unsigned char ttl, int *error,
++                                    int searchalltypes) {
++  struct UPNPDev *tmp;
++  struct UPNPDev *devlist = NULL;
++  unsigned int scope_id = 0;
++  int opt = 1;
++  static const char MSearchMsgFmt[] =
++      "M-SEARCH * HTTP/1.1\r\n"
++      "HOST: %s:" XSTR(SSDP_PORT) "\r\n"
++                                  "ST: %s\r\n"
++                                  "MAN: \"ssdp:discover\"\r\n"
++                                  "MX: %u\r\n"
++                                  "\r\n";
++  int deviceIndex;
++  char bufr[1536]; /* reception and emission buffer */
++  SOCKET sudp;
++  int n;
++  struct sockaddr_storage sockudp_r;
++  unsigned int mx;
+ #ifdef NO_GETADDRINFO
+-	struct sockaddr_storage sockudp_w;
++  struct sockaddr_storage sockudp_w;
+ #else
+-	int rv;
+-	struct addrinfo hints, *servinfo;
++  int rv;
++  struct addrinfo hints, *servinfo;
+ #endif
+ #ifdef _WIN32
+-	unsigned long _ttl = (unsigned long)ttl;
++  unsigned long _ttl = (unsigned long)ttl;
+ #endif
+-	int linklocal = 0;	/* try first with site-local multicast */
+-	int sentok;
++  int linklocal = 0; /* try first with site-local multicast */
++  int sentok;
+ 
+-	if(error)
+-		*error = MINISSDPC_UNKNOWN_ERROR;
++  if (error)
++    *error = MINISSDPC_UNKNOWN_ERROR;
+ 
+-	if(localport==UPNP_LOCAL_PORT_SAME)
+-		localport = SSDP_PORT;
++  if (localport == UPNP_LOCAL_PORT_SAME)
++    localport = SSDP_PORT;
+ 
+ #ifdef _WIN32
+-	sudp = socket(ipv6 ? PF_INET6 : PF_INET, SOCK_DGRAM, IPPROTO_UDP);
++  sudp = socket(ipv6 ? PF_INET6 : PF_INET, SOCK_DGRAM, IPPROTO_UDP);
+ #else
+-	sudp = socket(ipv6 ? PF_INET6 : PF_INET, SOCK_DGRAM, 0);
+-#endif
+-	if(ISINVALID(sudp))
+-	{
+-		if(error)
+-			*error = MINISSDPC_SOCKET_ERROR;
+-		PRINT_SOCKET_ERROR("socket");
+-		return NULL;
+-	}
+-	/* reception */
+-	memset(&sockudp_r, 0, sizeof(struct sockaddr_storage));
+-	if(ipv6) {
+-		struct sockaddr_in6 * p = (struct sockaddr_in6 *)&sockudp_r;
+-		p->sin6_family = AF_INET6;
+-		if(localport > 0 && localport < 65536)
+-			p->sin6_port = htons((unsigned short)localport);
+-		p->sin6_addr = in6addr_any; /* in6addr_any is not available with MinGW32 3.4.2 */
+-	} else {
+-		struct sockaddr_in * p = (struct sockaddr_in *)&sockudp_r;
+-		p->sin_family = AF_INET;
+-		if(localport > 0 && localport < 65536)
+-			p->sin_port = htons((unsigned short)localport);
+-		p->sin_addr.s_addr = INADDR_ANY;
+-	}
++  sudp = socket(ipv6 ? PF_INET6 : PF_INET, SOCK_DGRAM, 0);
++#endif
++  if (ISINVALID(sudp)) {
++    if (error)
++      *error = MINISSDPC_SOCKET_ERROR;
++    PRINT_SOCKET_ERROR("socket");
++    return NULL;
++  }
++  /* reception */
++  memset(&sockudp_r, 0, sizeof(struct sockaddr_storage));
++  if (ipv6) {
++    struct sockaddr_in6 *p = (struct sockaddr_in6 *)&sockudp_r;
++    p->sin6_family = AF_INET6;
++    if (localport > 0 && localport < 65536)
++      p->sin6_port = htons((unsigned short)localport);
++    p->sin6_addr =
++        in6addr_any; /* in6addr_any is not available with MinGW32 3.4.2 */
++  } else {
++    struct sockaddr_in *p = (struct sockaddr_in *)&sockudp_r;
++    p->sin_family = AF_INET;
++    if (localport > 0 && localport < 65536)
++      p->sin_port = htons((unsigned short)localport);
++    p->sin_addr.s_addr = INADDR_ANY;
++  }
+ #ifdef _WIN32
+-/* This code could help us to use the right Network interface for
+- * SSDP multicast traffic */
+-/* Get IP associated with the index given in the ip_forward struct
+- * in order to give this ip to setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF) */
+-	if(!ipv6) {
+-		DWORD ifbestidx;
++  /* This code could help us to use the right Network interface for
++   * SSDP multicast traffic */
++  /* Get IP associated with the index given in the ip_forward struct
++   * in order to give this ip to setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF)
++   */
++  if (!ipv6) {
++    DWORD ifbestidx;
+ #if _WIN32_WINNT >= 0x0600 // _WIN32_WINNT_VISTA
+-		// While we don't need IPv6 support, the IPv4 only funciton is not available in UWP apps.
+-		SOCKADDR_IN destAddr;
+-		memset(&destAddr, 0, sizeof(destAddr));
+-		destAddr.sin_family = AF_INET;
+-		destAddr.sin_addr.s_addr = inet_addr("223.255.255.255");
+-		destAddr.sin_port = 0;
+-		if (GetBestInterfaceEx((struct sockaddr *)&destAddr, &ifbestidx) == NO_ERROR) {
++    // While we don't need IPv6 support, the IPv4 only funciton is not available
++    // in UWP apps.
++    SOCKADDR_IN destAddr;
++    memset(&destAddr, 0, sizeof(destAddr));
++    destAddr.sin_family = AF_INET;
++    destAddr.sin_addr.s_addr = inet_addr("223.255.255.255");
++    destAddr.sin_port = 0;
++    if (GetBestInterfaceEx((struct sockaddr *)&destAddr, &ifbestidx) ==
++        NO_ERROR) {
+ #else
+-		if (GetBestInterface(inet_addr("223.255.255.255"), &ifbestidx) == NO_ERROR) {
+-#endif
+-			DWORD dwRetVal = NO_ERROR;
+-			PIP_ADAPTER_ADDRESSES pAddresses = NULL;
+-			ULONG outBufLen = 15360;
+-			int Iterations;
+-			PIP_ADAPTER_ADDRESSES pCurrAddresses = NULL;
+-			PIP_ADAPTER_UNICAST_ADDRESS pUnicast = NULL;
+-
+-			for (Iterations = 0; Iterations < 3; Iterations++) {
+-				pAddresses = (IP_ADAPTER_ADDRESSES *) HeapAlloc(GetProcessHeap(), 0, outBufLen);
+-				if (pAddresses == NULL) {
+-					break;
+-				}
+-
+-				dwRetVal = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, NULL, pAddresses, &outBufLen);
+-
+-				if (dwRetVal != ERROR_BUFFER_OVERFLOW) {
+-					break;
+-				}
+-				HeapFree(GetProcessHeap(), 0, pAddresses);
+-				pAddresses = NULL;
+-			}
+-
+-			if (dwRetVal == NO_ERROR) {
+-				pCurrAddresses = pAddresses;
+-				while (pCurrAddresses) {
++    if (GetBestInterface(inet_addr("223.255.255.255"), &ifbestidx) ==
++        NO_ERROR) {
++#endif
++      DWORD dwRetVal = NO_ERROR;
++      PIP_ADAPTER_ADDRESSES pAddresses = NULL;
++      ULONG outBufLen = 15360;
++      int Iterations;
++      PIP_ADAPTER_ADDRESSES pCurrAddresses = NULL;
++      PIP_ADAPTER_UNICAST_ADDRESS pUnicast = NULL;
++
++      for (Iterations = 0; Iterations < 3; Iterations++) {
++        pAddresses =
++            (IP_ADAPTER_ADDRESSES *)HeapAlloc(GetProcessHeap(), 0, outBufLen);
++        if (pAddresses == NULL) {
++          break;
++        }
++
++        dwRetVal = GetAdaptersAddresses(AF_INET, GAA_FLAG_INCLUDE_PREFIX, NULL,
++                                        pAddresses, &outBufLen);
++
++        if (dwRetVal != ERROR_BUFFER_OVERFLOW) {
++          break;
++        }
++        HeapFree(GetProcessHeap(), 0, pAddresses);
++        pAddresses = NULL;
++      }
++
++      if (dwRetVal == NO_ERROR) {
++        pCurrAddresses = pAddresses;
++        while (pCurrAddresses) {
+ #ifdef DEBUG
+-					int i;
+-					PIP_ADAPTER_MULTICAST_ADDRESS pMulticast = NULL;
+-					PIP_ADAPTER_ANYCAST_ADDRESS pAnycast = NULL;
+-
+-					printf("\tIfIndex (IPv4 interface): %u\n", pCurrAddresses->IfIndex);
+-					printf("\tAdapter name: %s\n", pCurrAddresses->AdapterName);
+-					pUnicast = pCurrAddresses->FirstUnicastAddress;
+-					if (pUnicast != NULL) {
+-						for (i = 0; pUnicast != NULL; i++) {
+-							printf("\tIP Address[%d]:     \t%s\n", i, inet_ntoa(((PSOCKADDR_IN)pUnicast->Address.lpSockaddr)->sin_addr) );
+-							pUnicast = pUnicast->Next;
+-						}
+-						printf("\tNumber of Unicast Addresses: %d\n", i);
+-					}
+-					pAnycast = pCurrAddresses->FirstAnycastAddress;
+-					if (pAnycast) {
+-						for (i = 0; pAnycast != NULL; i++) {
+-							printf("\tAnycast Address[%d]:     \t%s\n", i, inet_ntoa(((PSOCKADDR_IN)pAnycast->Address.lpSockaddr)->sin_addr) );
+-							pAnycast = pAnycast->Next;
+-						}
+-						printf("\tNumber of Anycast Addresses: %d\n", i);
+-					}
+-					pMulticast = pCurrAddresses->FirstMulticastAddress;
+-					if (pMulticast) {
+-						for (i = 0; pMulticast != NULL; i++) {
+-							printf("\tMulticast Address[%d]:     \t%s\n", i, inet_ntoa(((PSOCKADDR_IN)pMulticast->Address.lpSockaddr)->sin_addr) );
++          int i;
++          PIP_ADAPTER_MULTICAST_ADDRESS pMulticast = NULL;
++          PIP_ADAPTER_ANYCAST_ADDRESS pAnycast = NULL;
++
++          printf("\tIfIndex (IPv4 interface): %u\n", pCurrAddresses->IfIndex);
++          printf("\tAdapter name: %s\n", pCurrAddresses->AdapterName);
++          pUnicast = pCurrAddresses->FirstUnicastAddress;
++          if (pUnicast != NULL) {
++            for (i = 0; pUnicast != NULL; i++) {
++              printf(
++                  "\tIP Address[%d]:     \t%s\n", i,
++                  inet_ntoa(
++                      ((PSOCKADDR_IN)pUnicast->Address.lpSockaddr)->sin_addr));
++              pUnicast = pUnicast->Next;
++            }
++            printf("\tNumber of Unicast Addresses: %d\n", i);
++          }
++          pAnycast = pCurrAddresses->FirstAnycastAddress;
++          if (pAnycast) {
++            for (i = 0; pAnycast != NULL; i++) {
++              printf(
++                  "\tAnycast Address[%d]:     \t%s\n", i,
++                  inet_ntoa(
++                      ((PSOCKADDR_IN)pAnycast->Address.lpSockaddr)->sin_addr));
++              pAnycast = pAnycast->Next;
++            }
++            printf("\tNumber of Anycast Addresses: %d\n", i);
++          }
++          pMulticast = pCurrAddresses->FirstMulticastAddress;
++          if (pMulticast) {
++            for (i = 0; pMulticast != NULL; i++) {
++              printf("\tMulticast Address[%d]:     \t%s\n", i,
++                     inet_ntoa(((PSOCKADDR_IN)pMulticast->Address.lpSockaddr)
++                                   ->sin_addr));
+               pMulticast = pMulticast->Next;
+-						}
+-					}
+-					printf("\n");
+-#endif
+-					pUnicast = pCurrAddresses->FirstUnicastAddress;
+-					if (pCurrAddresses->IfIndex == ifbestidx && pUnicast != NULL) {
+-						SOCKADDR_IN *ipv4 = (SOCKADDR_IN *)(pUnicast->Address.lpSockaddr);
+-						/* Set the address of this interface to be used */
+-						struct in_addr mc_if;
+-						memset(&mc_if, 0, sizeof(mc_if));
+-						mc_if.s_addr = ipv4->sin_addr.s_addr;
+-						if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&mc_if, sizeof(mc_if)) < 0) {
+-							PRINT_SOCKET_ERROR("setsockopt");
+-						}
+-						((struct sockaddr_in *)&sockudp_r)->sin_addr.s_addr = ipv4->sin_addr.s_addr;
++            }
++          }
++          printf("\n");
++#endif
++          pUnicast = pCurrAddresses->FirstUnicastAddress;
++          if (pCurrAddresses->IfIndex == ifbestidx && pUnicast != NULL) {
++            SOCKADDR_IN *ipv4 = (SOCKADDR_IN *)(pUnicast->Address.lpSockaddr);
++            /* Set the address of this interface to be used */
++            struct in_addr mc_if;
++            memset(&mc_if, 0, sizeof(mc_if));
++            mc_if.s_addr = ipv4->sin_addr.s_addr;
++            if (setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF,
++                           (const char *)&mc_if, sizeof(mc_if)) < 0) {
++              PRINT_SOCKET_ERROR("setsockopt");
++            }
++            ((struct sockaddr_in *)&sockudp_r)->sin_addr.s_addr =
++                ipv4->sin_addr.s_addr;
+ #ifndef DEBUG
+-						break;
+-#endif
+-					}
+-					pCurrAddresses = pCurrAddresses->Next;
+-				}
+-			}
+-			if (pAddresses != NULL) {
+-				HeapFree(GetProcessHeap(), 0, pAddresses);
+-				pAddresses = NULL;
+-			}
+-		}
+-	}
+-#endif	/* _WIN32 */
++            break;
++#endif
++          }
++          pCurrAddresses = pCurrAddresses->Next;
++        }
++      }
++      if (pAddresses != NULL) {
++        HeapFree(GetProcessHeap(), 0, pAddresses);
++        pAddresses = NULL;
++      }
++    }
++  }
++#endif /* _WIN32 */
+ 
+ #ifdef _WIN32
+-	if (setsockopt(sudp, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof (opt)) < 0)
++  if (setsockopt(sudp, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt,
++                 sizeof(opt)) < 0)
+ #else
+-	if (setsockopt(sudp, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof (opt)) < 0)
++  if (setsockopt(sudp, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0)
+ #endif
+-	{
+-		if(error)
+-			*error = MINISSDPC_SOCKET_ERROR;
+-		PRINT_SOCKET_ERROR("setsockopt(SO_REUSEADDR,...)");
+-		goto error;
+-	}
++  {
++    if (error)
++      *error = MINISSDPC_SOCKET_ERROR;
++    PRINT_SOCKET_ERROR("setsockopt(SO_REUSEADDR,...)");
++    goto error;
++  }
+ 
+-	if(ipv6) {
++  if (ipv6) {
+ #ifdef _WIN32
+-		DWORD mcastHops = ttl;
+-		if(setsockopt(sudp, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, (const char *)&mcastHops, sizeof(mcastHops)) < 0)
++    DWORD mcastHops = ttl;
++    if (setsockopt(sudp, IPPROTO_IPV6, IPV6_MULTICAST_HOPS,
++                   (const char *)&mcastHops, sizeof(mcastHops)) < 0)
+ #else  /* _WIN32 */
+-		int mcastHops = ttl;
+-		if(setsockopt(sudp, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &mcastHops, sizeof(mcastHops)) < 0)
++    int mcastHops = ttl;
++    if (setsockopt(sudp, IPPROTO_IPV6, IPV6_MULTICAST_HOPS, &mcastHops,
++                   sizeof(mcastHops)) < 0)
+ #endif /* _WIN32 */
+-		{
+-			PRINT_SOCKET_ERROR("setsockopt(IPV6_MULTICAST_HOPS,...)");
+-		}
+-	} else {
++    {
++      PRINT_SOCKET_ERROR("setsockopt(IPV6_MULTICAST_HOPS,...)");
++    }
++  } else {
+ #ifdef _WIN32
+-		if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_TTL, (const char *)&_ttl, sizeof(_ttl)) < 0)
++    if (setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_TTL, (const char *)&_ttl,
++                   sizeof(_ttl)) < 0)
+ #else  /* _WIN32 */
+-		if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
++    if (setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_TTL, &ttl, sizeof(ttl)) < 0)
+ #endif /* _WIN32 */
+-		{
+-			/* not a fatal error */
+-			PRINT_SOCKET_ERROR("setsockopt(IP_MULTICAST_TTL,...)");
+-		}
+-	}
+-
+-	if(multicastif && multicastif[0] != '\0')
+-	{
+-		if(ipv6) {
+-#if !defined(_WIN32)
+-			/* according to MSDN, if_nametoindex() is supported since
+-			 * MS Windows Vista and MS Windows Server 2008.
+-			 * http://msdn.microsoft.com/en-us/library/bb408409%28v=vs.85%29.aspx */
+-			unsigned int ifindex = if_nametoindex(multicastif); /* eth0, etc. */
+-			if(ifindex == 0)
+-			{
+-				if(error)
+-					*error = MINISSDPC_INVALID_INPUT;
+-				fprintf(stderr, "Invalid multicast interface name %s\n", multicastif);
+-				goto error;
+-			}
+-			if(setsockopt(sudp, IPPROTO_IPV6, IPV6_MULTICAST_IF, &ifindex, sizeof(ifindex)) < 0)
+-			{
+-				PRINT_SOCKET_ERROR("setsockopt IPV6_MULTICAST_IF");
+-			}
++    {
++      /* not a fatal error */
++      PRINT_SOCKET_ERROR("setsockopt(IP_MULTICAST_TTL,...)");
++    }
++  }
++
++  if (multicastif && multicastif[0] != '\0') {
++    if (ipv6) {
++#if !defined(_WIN32) && !defined(__SWITCH__)
++      /* according to MSDN, if_nametoindex() is supported since
++       * MS Windows Vista and MS Windows Server 2008.
++       * http://msdn.microsoft.com/en-us/library/bb408409%28v=vs.85%29.aspx */
++      unsigned int ifindex = if_nametoindex(multicastif); /* eth0, etc. */
++      if (ifindex == 0) {
++        if (error)
++          *error = MINISSDPC_INVALID_INPUT;
++        fprintf(stderr, "Invalid multicast interface name %s\n", multicastif);
++        goto error;
++      }
++      if (setsockopt(sudp, IPPROTO_IPV6, IPV6_MULTICAST_IF, &ifindex,
++                     sizeof(ifindex)) < 0) {
++        PRINT_SOCKET_ERROR("setsockopt IPV6_MULTICAST_IF");
++      }
+ #else
+ #ifdef DEBUG
+-			printf("Setting of multicast interface not supported in IPv6 under Windows.\n");
++      printf("Setting of multicast interface not supported in IPv6 under "
++             "Windows.\n");
+ #endif
+ #endif
+-		} else {
+-			struct in_addr mc_if;
++    } else {
++      struct in_addr mc_if;
+ #if defined(_WIN32)
+ #if _WIN32_WINNT >= 0x0600 // _WIN32_WINNT_VISTA
+-			InetPtonA(AF_INET, multicastif, &mc_if);
++      InetPtonA(AF_INET, multicastif, &mc_if);
+ #else
+-			mc_if.s_addr = inet_addr(multicastif); /* old Windows SDK do not support InetPtoA() */
++      mc_if.s_addr = inet_addr(
++          multicastif); /* old Windows SDK do not support InetPtoA() */
+ #endif
+ #else
+-			/* was : mc_if.s_addr = inet_addr(multicastif); */ /* ex: 192.168.x.x */
+-			if (inet_pton(AF_INET, multicastif, &mc_if.s_addr) <= 0) {
+-				mc_if.s_addr = INADDR_NONE;
+-			}
+-#endif
+-			if(mc_if.s_addr != INADDR_NONE)
+-			{
+-				((struct sockaddr_in *)&sockudp_r)->sin_addr.s_addr = mc_if.s_addr;
+-				if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&mc_if, sizeof(mc_if)) < 0)
+-				{
+-					PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
+-				}
+-			} else {
+-				/* was not an ip address, try with an interface name */
++      /* was : mc_if.s_addr = inet_addr(multicastif); */ /* ex: 192.168.x.x */
++      if (inet_pton(AF_INET, multicastif, &mc_if.s_addr) <= 0) {
++        mc_if.s_addr = INADDR_NONE;
++      }
++#endif
++      if (mc_if.s_addr != INADDR_NONE) {
++        ((struct sockaddr_in *)&sockudp_r)->sin_addr.s_addr = mc_if.s_addr;
++        if (setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&mc_if,
++                       sizeof(mc_if)) < 0) {
++          PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
++        }
++      } else {
++        /* was not an ip address, try with an interface name */
+ #ifndef _WIN32
+ #ifdef HAS_IP_MREQN
+-				struct ip_mreqn reqn;	/* only defined with -D_BSD_SOURCE or -D_GNU_SOURCE */
+-#endif
+-				struct ifreq ifr;
+-				int ifrlen = sizeof(ifr);
+-				strncpy(ifr.ifr_name, multicastif, IFNAMSIZ);
+-				ifr.ifr_name[IFNAMSIZ-1] = '\0';
+-				if(ioctl(sudp, SIOCGIFADDR, &ifr, &ifrlen) < 0)
+-				{
+-					PRINT_SOCKET_ERROR("ioctl(...SIOCGIFADDR...)");
+-					goto error;
+-				}
+-				mc_if.s_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr;
++        struct ip_mreqn
++            reqn; /* only defined with -D_BSD_SOURCE or -D_GNU_SOURCE */
++#endif
++        struct ifreq ifr;
++        int ifrlen = sizeof(ifr);
++        strncpy(ifr.ifr_name, multicastif, IFNAMSIZ);
++        ifr.ifr_name[IFNAMSIZ - 1] = '\0';
++        if (ioctl(sudp, SIOCGIFADDR, &ifr, &ifrlen) < 0) {
++          PRINT_SOCKET_ERROR("ioctl(...SIOCGIFADDR...)");
++          goto error;
++        }
++        mc_if.s_addr = ((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr.s_addr;
+ #ifdef HAS_IP_MREQN
+-				memset(&reqn, 0, sizeof(struct ip_mreqn));
+-				reqn.imr_address.s_addr = mc_if.s_addr;
+-				reqn.imr_ifindex = if_nametoindex(multicastif);
+-				if(reqn.imr_ifindex == 0)
+-				{
+-					if(error)
+-						*error = MINISSDPC_INVALID_INPUT;
+-					fprintf(stderr, "Invalid multicast ip address / interface name %s\n", multicastif);
+-					goto error;
+-				}
+-				if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&reqn, sizeof(reqn)) < 0)
+-				{
+-					PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
+-				}
++        memset(&reqn, 0, sizeof(struct ip_mreqn));
++        reqn.imr_address.s_addr = mc_if.s_addr;
++#ifdef __SWITCH__
++        reqn.imr_ifindex = 0;
+ #else
+-				if(setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&mc_if, sizeof(mc_if)) < 0)
+-				{
+-					PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
+-				}
++        reqn.imr_ifindex = if_nametoindex(multicastif);
++#endif
++        if (reqn.imr_ifindex == 0) {
++          if (error)
++            *error = MINISSDPC_INVALID_INPUT;
++          fprintf(stderr, "Invalid multicast ip address / interface name %s\n",
++                  multicastif);
++          goto error;
++        }
++        if (setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&reqn,
++                       sizeof(reqn)) < 0) {
++          PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
++        }
++#else
++        if (setsockopt(sudp, IPPROTO_IP, IP_MULTICAST_IF, (const char *)&mc_if,
++                       sizeof(mc_if)) < 0) {
++          PRINT_SOCKET_ERROR("setsockopt IP_MULTICAST_IF");
++        }
+ #endif
+ #else /* _WIN32 */
+ #ifdef DEBUG
+-				printf("Setting of multicast interface not supported with interface name.\n");
++        printf("Setting of multicast interface not supported with interface "
++               "name.\n");
+ #endif
+ #endif /* #ifdef HAS_IP_MREQN / !defined(_WIN32) */
+-			}
+-		}
+-	}
+-
+-	/* Before sending the packed, we first "bind" in order to be able
+-	 * to receive the response */
+-	if (bind(sudp, (const struct sockaddr *)&sockudp_r,
+-	         ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) != 0)
+-	{
+-		if(error)
+-			*error = MINISSDPC_SOCKET_ERROR;
+-		PRINT_SOCKET_ERROR("bind");
+-		closesocket(sudp);
+-		return NULL;
+-	}
+-
+-	if(error)
+-		*error = MINISSDPC_SUCCESS;
+-	/* Calculating maximum response time in seconds */
+-	mx = ((unsigned int)delay) / 1000u;
+-	if(mx == 0) {
+-		mx = 1;
+-		delay = 1000;
+-	}
+-	/* receiving SSDP response packet */
+-	for(deviceIndex = 0; deviceTypes[deviceIndex]; deviceIndex++) {
+-		sentok = 0;
+-		/* sending the SSDP M-SEARCH packet */
+-		n = snprintf(bufr, sizeof(bufr),
+-		             MSearchMsgFmt,
+-		             ipv6 ?
+-		             (linklocal ? "[" UPNP_MCAST_LL_ADDR "]" :  "[" UPNP_MCAST_SL_ADDR "]")
+-		             : UPNP_MCAST_ADDR,
+-		             deviceTypes[deviceIndex], mx);
+-		if ((unsigned int)n >= sizeof(bufr)) {
+-			if(error)
+-				*error = MINISSDPC_MEMORY_ERROR;
+-			goto error;
+-		}
++      }
++    }
++  }
++
++  /* Before sending the packed, we first "bind" in order to be able
++   * to receive the response */
++  if (bind(sudp, (const struct sockaddr *)&sockudp_r,
++           ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in)) !=
++      0) {
++    if (error)
++      *error = MINISSDPC_SOCKET_ERROR;
++    PRINT_SOCKET_ERROR("bind");
++    closesocket(sudp);
++    return NULL;
++  }
++
++  if (error)
++    *error = MINISSDPC_SUCCESS;
++  /* Calculating maximum response time in seconds */
++  mx = ((unsigned int)delay) / 1000u;
++  if (mx == 0) {
++    mx = 1;
++    delay = 1000;
++  }
++  /* receiving SSDP response packet */
++  for (deviceIndex = 0; deviceTypes[deviceIndex]; deviceIndex++) {
++    sentok = 0;
++    /* sending the SSDP M-SEARCH packet */
++    n = snprintf(bufr, sizeof(bufr), MSearchMsgFmt,
++                 ipv6 ? (linklocal ? "[" UPNP_MCAST_LL_ADDR "]"
++                                   : "[" UPNP_MCAST_SL_ADDR "]")
++                      : UPNP_MCAST_ADDR,
++                 deviceTypes[deviceIndex], mx);
++    if ((unsigned int)n >= sizeof(bufr)) {
++      if (error)
++        *error = MINISSDPC_MEMORY_ERROR;
++      goto error;
++    }
+ #ifdef DEBUG
+-		/*printf("Sending %s", bufr);*/
+-		printf("Sending M-SEARCH request to %s with ST: %s\n",
+-		       ipv6 ?
+-		       (linklocal ? "[" UPNP_MCAST_LL_ADDR "]" :  "[" UPNP_MCAST_SL_ADDR "]")
+-		       : UPNP_MCAST_ADDR,
+-		       deviceTypes[deviceIndex]);
++    /*printf("Sending %s", bufr);*/
++    printf("Sending M-SEARCH request to %s with ST: %s\n",
++           ipv6 ? (linklocal ? "[" UPNP_MCAST_LL_ADDR "]"
++                             : "[" UPNP_MCAST_SL_ADDR "]")
++                : UPNP_MCAST_ADDR,
++           deviceTypes[deviceIndex]);
+ #endif
+ #ifdef NO_GETADDRINFO
+-		/* the following code is not using getaddrinfo */
+-		/* emission */
+-		memset(&sockudp_w, 0, sizeof(struct sockaddr_storage));
+-		if(ipv6) {
+-			struct sockaddr_in6 * p = (struct sockaddr_in6 *)&sockudp_w;
+-			p->sin6_family = AF_INET6;
+-			p->sin6_port = htons(SSDP_PORT);
+-			inet_pton(AF_INET6,
+-			          linklocal ? UPNP_MCAST_LL_ADDR : UPNP_MCAST_SL_ADDR,
+-			          &(p->sin6_addr));
+-		} else {
+-			struct sockaddr_in * p = (struct sockaddr_in *)&sockudp_w;
+-			p->sin_family = AF_INET;
+-			p->sin_port = htons(SSDP_PORT);
+-			p->sin_addr.s_addr = inet_addr(UPNP_MCAST_ADDR);
+-		}
+-		n = sendto(sudp, bufr, n, 0, &sockudp_w,
+-		           ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
+-		if (n < 0) {
+-			if(error)
+-				*error = MINISSDPC_SOCKET_ERROR;
+-			PRINT_SOCKET_ERROR("sendto");
+-		} else {
+-			sentok = 1;
+-		}
++    /* the following code is not using getaddrinfo */
++    /* emission */
++    memset(&sockudp_w, 0, sizeof(struct sockaddr_storage));
++    if (ipv6) {
++      struct sockaddr_in6 *p = (struct sockaddr_in6 *)&sockudp_w;
++      p->sin6_family = AF_INET6;
++      p->sin6_port = htons(SSDP_PORT);
++      inet_pton(AF_INET6, linklocal ? UPNP_MCAST_LL_ADDR : UPNP_MCAST_SL_ADDR,
++                &(p->sin6_addr));
++    } else {
++      struct sockaddr_in *p = (struct sockaddr_in *)&sockudp_w;
++      p->sin_family = AF_INET;
++      p->sin_port = htons(SSDP_PORT);
++      p->sin_addr.s_addr = inet_addr(UPNP_MCAST_ADDR);
++    }
++    n = sendto(sudp, bufr, n, 0, &sockudp_w,
++               ipv6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr_in));
++    if (n < 0) {
++      if (error)
++        *error = MINISSDPC_SOCKET_ERROR;
++      PRINT_SOCKET_ERROR("sendto");
++    } else {
++      sentok = 1;
++    }
+ #else /* #ifdef NO_GETADDRINFO */
+-		memset(&hints, 0, sizeof(hints));
+-		hints.ai_family = AF_UNSPEC; /* AF_INET6 or AF_INET */
+-		hints.ai_socktype = SOCK_DGRAM;
+-		/*hints.ai_flags = */
+-		if ((rv = getaddrinfo(ipv6
+-		                      ? (linklocal ? UPNP_MCAST_LL_ADDR : UPNP_MCAST_SL_ADDR)
+-		                      : UPNP_MCAST_ADDR,
+-		                      XSTR(SSDP_PORT), &hints, &servinfo)) != 0) {
+-			if(error)
+-				*error = MINISSDPC_SOCKET_ERROR;
++    memset(&hints, 0, sizeof(hints));
++    hints.ai_family = AF_UNSPEC; /* AF_INET6 or AF_INET */
++    hints.ai_socktype = SOCK_DGRAM;
++    /*hints.ai_flags = */
++    if ((rv = getaddrinfo(
++             ipv6 ? (linklocal ? UPNP_MCAST_LL_ADDR : UPNP_MCAST_SL_ADDR)
++                  : UPNP_MCAST_ADDR,
++             XSTR(SSDP_PORT), &hints, &servinfo)) != 0) {
++      if (error)
++        *error = MINISSDPC_SOCKET_ERROR;
+ #ifdef _WIN32
+-			fprintf(stderr, "getaddrinfo() failed: %d\n", rv);
++      fprintf(stderr, "getaddrinfo() failed: %d\n", rv);
+ #else
+-			fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+-#endif
+-			break;
+-		} else {
+-			struct addrinfo *p;
+-			for(p = servinfo; p; p = p->ai_next) {
+-				n = sendto(sudp, bufr, n, 0, p->ai_addr, MSC_CAST_INT p->ai_addrlen);
+-				if (n < 0) {
++      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
++#endif
++      break;
++    } else {
++      struct addrinfo *p;
++      for (p = servinfo; p; p = p->ai_next) {
++        n = sendto(sudp, bufr, n, 0, p->ai_addr, MSC_CAST_INT p->ai_addrlen);
++        if (n < 0) {
+ #ifdef DEBUG
+-					char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
+-					if (getnameinfo(p->ai_addr, (socklen_t)p->ai_addrlen, hbuf, sizeof(hbuf), sbuf,
+-					                sizeof(sbuf), NI_NUMERICHOST | NI_NUMERICSERV) == 0) {
+-						fprintf(stderr, "host:%s port:%s\n", hbuf, sbuf);
+-					}
+-#endif
+-					PRINT_SOCKET_ERROR("sendto");
+-					continue;
+-				} else {
+-					sentok = 1;
+-				}
+-			}
+-			freeaddrinfo(servinfo);
+-		}
+-		if(!sentok) {
+-			if(error)
+-				*error = MINISSDPC_SOCKET_ERROR;
+-		}
++          char hbuf[NI_MAXHOST], sbuf[NI_MAXSERV];
++          if (getnameinfo(p->ai_addr, (socklen_t)p->ai_addrlen, hbuf,
++                          sizeof(hbuf), sbuf, sizeof(sbuf),
++                          NI_NUMERICHOST | NI_NUMERICSERV) == 0) {
++            fprintf(stderr, "host:%s port:%s\n", hbuf, sbuf);
++          }
++#endif
++          PRINT_SOCKET_ERROR("sendto");
++          continue;
++        } else {
++          sentok = 1;
++        }
++      }
++      freeaddrinfo(servinfo);
++    }
++    if (!sentok) {
++      if (error)
++        *error = MINISSDPC_SOCKET_ERROR;
++    }
+ #endif /* #ifdef NO_GETADDRINFO */
+-		/* Waiting for SSDP REPLY packet to M-SEARCH
+-		 * if searchalltypes is set, enter the loop only
+-		 * when the last deviceType is reached */
+-		if((sentok && !searchalltypes) || !deviceTypes[deviceIndex + 1]) {
+-			struct timeval start = {0, 0}, current = {0, 0};
+-			upnp_gettimeofday(&start);
+-			do {
+-				n = receivedata(sudp, bufr, sizeof(bufr), delay, &scope_id);
+-				if (n < 0) {
+-					/* error */
+-					if(error)
+-						*error = MINISSDPC_SOCKET_ERROR;
+-					goto error;
+-				} else if (n == 0) {
+-					/* no data or Time Out */
++    /* Waiting for SSDP REPLY packet to M-SEARCH
++     * if searchalltypes is set, enter the loop only
++     * when the last deviceType is reached */
++    if ((sentok && !searchalltypes) || !deviceTypes[deviceIndex + 1]) {
++      struct timeval start = {0, 0}, current = {0, 0};
++      upnp_gettimeofday(&start);
++      do {
++        n = receivedata(sudp, bufr, sizeof(bufr), delay, &scope_id);
++        if (n < 0) {
++          /* error */
++          if (error)
++            *error = MINISSDPC_SOCKET_ERROR;
++          goto error;
++        } else if (n == 0) {
++          /* no data or Time Out */
+ #ifdef DEBUG
+-					printf("NODATA or TIMEOUT\n");
++          printf("NODATA or TIMEOUT\n");
+ #endif /* DEBUG */
+-					if (devlist && !searchalltypes) {
+-						/* found some devices, stop now*/
+-						if(error)
+-							*error = MINISSDPC_SUCCESS;
+-						goto error;
+-					}
+-				} else {
+-					const char * descURL=NULL;
+-					int urlsize=0;
+-					const char * st=NULL;
+-					int stsize=0;
+-					const char * usn=NULL;
+-					int usnsize=0;
+-					parseMSEARCHReply(bufr, n, &descURL, &urlsize, &st, &stsize, &usn, &usnsize);
+-					if(st&&descURL) {
++          if (devlist && !searchalltypes) {
++            /* found some devices, stop now*/
++            if (error)
++              *error = MINISSDPC_SUCCESS;
++            goto error;
++          }
++        } else {
++          const char *descURL = NULL;
++          int urlsize = 0;
++          const char *st = NULL;
++          int stsize = 0;
++          const char *usn = NULL;
++          int usnsize = 0;
++          parseMSEARCHReply(bufr, n, &descURL, &urlsize, &st, &stsize, &usn,
++                            &usnsize);
++          if (st && descURL) {
+ #ifdef DEBUG
+-						printf("M-SEARCH Reply:\n  ST: %.*s\n  USN: %.*s\n  Location: %.*s\n",
+-						       stsize, st, usnsize, (usn?usn:""), urlsize, descURL);
++            printf(
++                "M-SEARCH Reply:\n  ST: %.*s\n  USN: %.*s\n  Location: %.*s\n",
++                stsize, st, usnsize, (usn ? usn : ""), urlsize, descURL);
+ #endif /* DEBUG */
+-						for(tmp=devlist; tmp; tmp = tmp->pNext) {
+-							if(strncmp(tmp->descURL, descURL, urlsize) == 0 &&
+-							   tmp->descURL[urlsize] == '\0' &&
+-							   strncmp(tmp->st, st, stsize) == 0 &&
+-							   tmp->st[stsize] == '\0' &&
+-							   (usnsize == 0 || strncmp(tmp->usn, usn, usnsize) == 0) &&
+-							   tmp->usn[usnsize] == '\0')
+-								break;
+-						}
+-						/* at the exit of the loop above, tmp is null if
+-						 * no duplicate device was found */
+-						if(tmp)
+-							continue;
+-						tmp = (struct UPNPDev *)malloc(sizeof(struct UPNPDev)+urlsize+stsize+usnsize+3);
+-						if(!tmp) {
+-							/* memory allocation error */
+-							if(error)
+-								*error = MINISSDPC_MEMORY_ERROR;
+-							goto error;
+-						}
+-						tmp->pNext = devlist;
+-						tmp->descURL = tmp->buffer;
+-						tmp->st = tmp->buffer + 1 + urlsize;
+-						tmp->usn = tmp->st + 1 + stsize;
+-						memcpy(tmp->buffer, descURL, urlsize);
+-						tmp->buffer[urlsize] = '\0';
+-						memcpy(tmp->st, st, stsize);
+-						tmp->buffer[urlsize+1+stsize] = '\0';
+-						if(usn != NULL)
+-							memcpy(tmp->usn, usn, usnsize);
+-						tmp->buffer[urlsize+1+stsize+1+usnsize] = '\0';
+-						tmp->scope_id = scope_id;
+-						devlist = tmp;
+-					}
+-					if (upnp_gettimeofday(&current) >= 0) {
+-						/* exit the loop if delay is reached */
+-						long interval = (current.tv_sec - start.tv_sec) * 1000;
+-						interval += (current.tv_usec - start.tv_usec) / 1000;
+-						if (interval > (long)delay)
+-							break;
+-					}
+-				}
+-			} while(n > 0);
+-		}
+-		if(ipv6) {
+-			/* switch linklocal flag */
+-			if(linklocal) {
+-				linklocal = 0;
+-			} else {
+-				/* try again with linklocal multicast */
+-				linklocal = 1;
+-				--deviceIndex;
+-			}
+-		}
+-	}
++            for (tmp = devlist; tmp; tmp = tmp->pNext) {
++              if (strncmp(tmp->descURL, descURL, urlsize) == 0 &&
++                  tmp->descURL[urlsize] == '\0' &&
++                  strncmp(tmp->st, st, stsize) == 0 &&
++                  tmp->st[stsize] == '\0' &&
++                  (usnsize == 0 || strncmp(tmp->usn, usn, usnsize) == 0) &&
++                  tmp->usn[usnsize] == '\0')
++                break;
++            }
++            /* at the exit of the loop above, tmp is null if
++             * no duplicate device was found */
++            if (tmp)
++              continue;
++            tmp = (struct UPNPDev *)malloc(sizeof(struct UPNPDev) + urlsize +
++                                           stsize + usnsize + 3);
++            if (!tmp) {
++              /* memory allocation error */
++              if (error)
++                *error = MINISSDPC_MEMORY_ERROR;
++              goto error;
++            }
++            tmp->pNext = devlist;
++            tmp->descURL = tmp->buffer;
++            tmp->st = tmp->buffer + 1 + urlsize;
++            tmp->usn = tmp->st + 1 + stsize;
++            memcpy(tmp->buffer, descURL, urlsize);
++            tmp->buffer[urlsize] = '\0';
++            memcpy(tmp->st, st, stsize);
++            tmp->buffer[urlsize + 1 + stsize] = '\0';
++            if (usn != NULL)
++              memcpy(tmp->usn, usn, usnsize);
++            tmp->buffer[urlsize + 1 + stsize + 1 + usnsize] = '\0';
++            tmp->scope_id = scope_id;
++            devlist = tmp;
++          }
++          if (upnp_gettimeofday(&current) >= 0) {
++            /* exit the loop if delay is reached */
++            long interval = (current.tv_sec - start.tv_sec) * 1000;
++            interval += (current.tv_usec - start.tv_usec) / 1000;
++            if (interval > (long)delay)
++              break;
++          }
++        }
++      } while (n > 0);
++    }
++    if (ipv6) {
++      /* switch linklocal flag */
++      if (linklocal) {
++        linklocal = 0;
++      } else {
++        /* try again with linklocal multicast */
++        linklocal = 1;
++        --deviceIndex;
++      }
++    }
++  }
+ error:
+-	closesocket(sudp);
+-	return devlist;
++  closesocket(sudp);
++  return devlist;
+ }
+diff --git a/ext/miniupnp/miniupnpc/src/miniupnpc.c b/miniupnpc/src/miniupnpc.c
+index e9ec4c2..35b097d 100644
+--- a/ext/miniupnp/miniupnpc/src/miniupnpc.c
++++ b/ext/miniupnp/miniupnpc/src/miniupnpc.c
+@@ -6,16 +6,16 @@
+  * copyright (c) 2005-2024 Thomas Bernard
+  * This software is subjet to the conditions detailed in the
+  * provided LICENSE file. */
+-#include <stdlib.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ #include <string.h>
+ #ifdef _WIN32
+ /* Win32 Specific includes and defines */
+-#include <winsock2.h>
+-#include <ws2tcpip.h>
++#include "win32_snprintf.h"
+ #include <io.h>
+ #include <iphlpapi.h>
+-#include "win32_snprintf.h"
++#include <winsock2.h>
++#include <ws2tcpip.h>
+ #define strdup _strdup
+ #ifndef strncasecmp
+ #if defined(_MSC_VER) && (_MSC_VER >= 1400)
+@@ -34,37 +34,36 @@
+ #else
+ #include <sys/select.h>
+ #endif
+-#include <sys/socket.h>
+-#include <sys/types.h>
+-#include <sys/param.h>
+-#include <netinet/in.h>
+ #include <arpa/inet.h>
+-#include <netdb.h>
+ #include <net/if.h>
++#include <netdb.h>
++#include <netinet/in.h>
++#include <sys/param.h>
++#include <sys/socket.h>
++#include <sys/types.h>
+ #if !defined(__amigaos__) && !defined(__amigaos4__)
+ #include <poll.h>
+ #endif
+-#include <strings.h>
+ #include <errno.h>
++#include <strings.h>
+ #define closesocket close
+ #endif /* #else _WIN32 */
+ #ifdef __GNU__
+ #define MAXHOSTNAMELEN 64
+ #endif
+ 
+-
+-#include "miniupnpc.h"
++#include "addr_is_reserved.h"
++#include "connecthostport.h"
++#include "minisoap.h"
+ #include "minissdpc.h"
++#include "miniupnpc.h"
+ #include "miniwget.h"
+ #include "miniwget_private.h"
+-#include "minisoap.h"
+ #include "minixml.h"
+ #include "upnpcommands.h"
+-#include "connecthostport.h"
+-#include "addr_is_reserved.h"
+ 
+ /* compare the beginning of a string with a constant string */
+-#define COMPARE(str, cstr) (0==strncmp(str, cstr, sizeof(cstr) - 1))
++#define COMPARE(str, cstr) (0 == strncmp(str, cstr, sizeof(cstr) - 1))
+ 
+ #ifndef MAXHOSTNAMELEN
+ #define MAXHOSTNAMELEN 64
+@@ -75,20 +74,20 @@
+ #define SERVICEPREFIX2 'u'
+ 
+ /* root description parsing */
+-MINIUPNP_LIBSPEC void parserootdesc(const char * buffer, int bufsize, struct IGDdatas * data)
+-{
+-	struct xmlparser parser;
+-	/* xmlparser object */
+-	parser.xmlstart = buffer;
+-	parser.xmlsize = bufsize;
+-	parser.data = data;
+-	parser.starteltfunc = IGDstartelt;
+-	parser.endeltfunc = IGDendelt;
+-	parser.datafunc = IGDdata;
+-	parser.attfunc = 0;
+-	parsexml(&parser);
++MINIUPNP_LIBSPEC void parserootdesc(const char *buffer, int bufsize,
++                                    struct IGDdatas *data) {
++  struct xmlparser parser;
++  /* xmlparser object */
++  parser.xmlstart = buffer;
++  parser.xmlsize = bufsize;
++  parser.data = data;
++  parser.starteltfunc = IGDstartelt;
++  parser.endeltfunc = IGDendelt;
++  parser.datafunc = IGDdata;
++  parser.attfunc = 0;
++  parsexml(&parser);
+ #ifdef DEBUG
+-	printIGD(data);
++  printIGD(data);
+ #endif
+ }
+ 
+@@ -97,136 +96,134 @@ MINIUPNP_LIBSPEC void parserootdesc(const char * buffer, int bufsize, struct IGD
+  * return values :
+  *   pointer - OK
+  *   NULL - error */
+-static char *
+-simpleUPnPcommand2(SOCKET s, const char * url, const char * service,
+-                   const char * action, struct UPNParg * args,
+-                   int * bufsize, const char * httpversion)
+-{
+-	char hostname[MAXHOSTNAMELEN+1];
+-	unsigned short port = 0;
+-	char * path;
+-	char soapact[128];
+-	char soapbody[2048];
+-	int soapbodylen;
+-	char * buf;
+-	int n;
+-	int status_code;
+-
+-	*bufsize = 0;
+-	snprintf(soapact, sizeof(soapact), "%s#%s", service, action);
+-	if(args==NULL)
+-	{
+-		soapbodylen = snprintf(soapbody, sizeof(soapbody),
+-						  "<?xml version=\"1.0\"?>\r\n"
+-						  "<" SOAPPREFIX ":Envelope "
+-						  "xmlns:" SOAPPREFIX "=\"http://schemas.xmlsoap.org/soap/envelope/\" "
+-						  SOAPPREFIX ":encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+-						  "<" SOAPPREFIX ":Body>"
+-						  "<" SERVICEPREFIX ":%s xmlns:" SERVICEPREFIX "=\"%s\">"
+-						  "</" SERVICEPREFIX ":%s>"
+-						  "</" SOAPPREFIX ":Body></" SOAPPREFIX ":Envelope>"
+-						  "\r\n", action, service, action);
+-		if ((unsigned int)soapbodylen >= sizeof(soapbody))
+-			return NULL;
+-	}
+-	else
+-	{
+-		char * p;
+-		const char * pe, * pv;
+-		const char * const pend = soapbody + sizeof(soapbody);
+-		soapbodylen = snprintf(soapbody, sizeof(soapbody),
+-						"<?xml version=\"1.0\"?>\r\n"
+-						"<" SOAPPREFIX ":Envelope "
+-						"xmlns:" SOAPPREFIX "=\"http://schemas.xmlsoap.org/soap/envelope/\" "
+-						SOAPPREFIX ":encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
+-						"<" SOAPPREFIX ":Body>"
+-						"<" SERVICEPREFIX ":%s xmlns:" SERVICEPREFIX "=\"%s\">",
+-						action, service);
+-		if ((unsigned int)soapbodylen >= sizeof(soapbody))
+-			return NULL;
+-		p = soapbody + soapbodylen;
+-		while(args->elt)
+-		{
+-			if(p >= pend) /* check for space to write next byte */
+-				return NULL;
+-			*(p++) = '<';
+-
+-			pe = args->elt;
+-			while(p < pend && *pe)
+-				*(p++) = *(pe++);
+-
+-			if(p >= pend) /* check for space to write next byte */
+-				return NULL;
+-			*(p++) = '>';
+-
+-			if((pv = args->val))
+-			{
+-				while(p < pend && *pv)
+-					*(p++) = *(pv++);
+-			}
+-
+-			if((p+2) > pend) /* check for space to write next 2 bytes */
+-				return NULL;
+-			*(p++) = '<';
+-			*(p++) = '/';
+-
+-			pe = args->elt;
+-			while(p < pend && *pe)
+-				*(p++) = *(pe++);
+-
+-			if(p >= pend) /* check for space to write next byte */
+-				return NULL;
+-			*(p++) = '>';
+-
+-			args++;
+-		}
+-		if((p+4) > pend) /* check for space to write next 4 bytes */
+-			return NULL;
+-		*(p++) = '<';
+-		*(p++) = '/';
+-		*(p++) = SERVICEPREFIX2;
+-		*(p++) = ':';
+-
+-		pe = action;
+-		while(p < pend && *pe)
+-			*(p++) = *(pe++);
+-
+-		strncpy(p, "></" SOAPPREFIX ":Body></" SOAPPREFIX ":Envelope>\r\n",
+-		        pend - p);
+-		if(soapbody[sizeof(soapbody)-1]) /* strncpy pads buffer with 0s, so if it doesn't end in 0, could not fit full string */
+-			return NULL;
+-	}
+-	if(!parseURL(url, hostname, &port, &path, NULL)) return NULL;
+-	if(ISINVALID(s)) {
+-		s = connecthostport(hostname, port, 0);
+-		if(ISINVALID(s)) {
+-			/* failed to connect */
+-			return NULL;
+-		}
+-	}
+-
+-	n = soapPostSubmit(s, path, hostname, port, soapact, soapbody, httpversion);
+-	if(n<=0) {
++static char *simpleUPnPcommand2(SOCKET s, const char *url, const char *service,
++                                const char *action, struct UPNParg *args,
++                                int *bufsize, const char *httpversion) {
++  char hostname[MAXHOSTNAMELEN + 1];
++  unsigned short port = 0;
++  char *path;
++  char soapact[128];
++  char soapbody[2048];
++  int soapbodylen;
++  char *buf;
++  int n;
++  int status_code;
++
++  *bufsize = 0;
++  snprintf(soapact, sizeof(soapact), "%s#%s", service, action);
++  if (args == NULL) {
++    soapbodylen =
++        snprintf(soapbody, sizeof(soapbody),
++                 "<?xml version=\"1.0\"?>\r\n"
++                 "<" SOAPPREFIX ":Envelope "
++                 "xmlns:" SOAPPREFIX
++                 "=\"http://schemas.xmlsoap.org/soap/envelope/\" " SOAPPREFIX
++                 ":encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
++                 "<" SOAPPREFIX ":Body>"
++                 "<" SERVICEPREFIX ":%s xmlns:" SERVICEPREFIX "=\"%s\">"
++                 "</" SERVICEPREFIX ":%s>"
++                 "</" SOAPPREFIX ":Body></" SOAPPREFIX ":Envelope>"
++                 "\r\n",
++                 action, service, action);
++    if ((unsigned int)soapbodylen >= sizeof(soapbody))
++      return NULL;
++  } else {
++    char *p;
++    const char *pe, *pv;
++    const char *const pend = soapbody + sizeof(soapbody);
++    soapbodylen =
++        snprintf(soapbody, sizeof(soapbody),
++                 "<?xml version=\"1.0\"?>\r\n"
++                 "<" SOAPPREFIX ":Envelope "
++                 "xmlns:" SOAPPREFIX
++                 "=\"http://schemas.xmlsoap.org/soap/envelope/\" " SOAPPREFIX
++                 ":encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">"
++                 "<" SOAPPREFIX ":Body>"
++                 "<" SERVICEPREFIX ":%s xmlns:" SERVICEPREFIX "=\"%s\">",
++                 action, service);
++    if ((unsigned int)soapbodylen >= sizeof(soapbody))
++      return NULL;
++    p = soapbody + soapbodylen;
++    while (args->elt) {
++      if (p >= pend) /* check for space to write next byte */
++        return NULL;
++      *(p++) = '<';
++
++      pe = args->elt;
++      while (p < pend && *pe)
++        *(p++) = *(pe++);
++
++      if (p >= pend) /* check for space to write next byte */
++        return NULL;
++      *(p++) = '>';
++
++      if ((pv = args->val)) {
++        while (p < pend && *pv)
++          *(p++) = *(pv++);
++      }
++
++      if ((p + 2) > pend) /* check for space to write next 2 bytes */
++        return NULL;
++      *(p++) = '<';
++      *(p++) = '/';
++
++      pe = args->elt;
++      while (p < pend && *pe)
++        *(p++) = *(pe++);
++
++      if (p >= pend) /* check for space to write next byte */
++        return NULL;
++      *(p++) = '>';
++
++      args++;
++    }
++    if ((p + 4) > pend) /* check for space to write next 4 bytes */
++      return NULL;
++    *(p++) = '<';
++    *(p++) = '/';
++    *(p++) = SERVICEPREFIX2;
++    *(p++) = ':';
++
++    pe = action;
++    while (p < pend && *pe)
++      *(p++) = *(pe++);
++
++    strncpy(p, "></" SOAPPREFIX ":Body></" SOAPPREFIX ":Envelope>\r\n",
++            pend - p);
++    if (soapbody[sizeof(soapbody) -
++                 1]) /* strncpy pads buffer with 0s, so if it doesn't end in 0,
++                        could not fit full string */
++      return NULL;
++  }
++  if (!parseURL(url, hostname, &port, &path, NULL))
++    return NULL;
++  if (ISINVALID(s)) {
++    s = connecthostport(hostname, port, 0);
++    if (ISINVALID(s)) {
++      /* failed to connect */
++      return NULL;
++    }
++  }
++
++  n = soapPostSubmit(s, path, hostname, port, soapact, soapbody, httpversion);
++  if (n <= 0) {
+ #ifdef DEBUG
+-		printf("Error sending SOAP request\n");
++    printf("Error sending SOAP request\n");
+ #endif
+-		closesocket(s);
+-		return NULL;
+-	}
++    closesocket(s);
++    return NULL;
++  }
+ 
+-	buf = getHTTPResponse(s, bufsize, &status_code);
++  buf = getHTTPResponse(s, bufsize, &status_code);
+ #ifdef DEBUG
+-	if(*bufsize > 0 && buf)
+-	{
+-		printf("HTTP %d SOAP Response :\n%.*s\n", status_code, *bufsize, buf);
+-	}
+-	else
+-	{
+-		printf("HTTP %d, empty SOAP response. size=%d\n", status_code, *bufsize);
+-	}
++  if (*bufsize > 0 && buf) {
++    printf("HTTP %d SOAP Response :\n%.*s\n", status_code, *bufsize, buf);
++  } else {
++    printf("HTTP %d, empty SOAP response. size=%d\n", status_code, *bufsize);
++  }
+ #endif
+-	closesocket(s);
+-	return buf;
++  closesocket(s);
++  return buf;
+ }
+ 
+ /* simpleUPnPcommand :
+@@ -234,26 +231,26 @@ simpleUPnPcommand2(SOCKET s, const char * url, const char * service,
+  * return values :
+  *   pointer - OK
+  *   NULL    - error */
+-char *
+-simpleUPnPcommand(int s, const char * url, const char * service,
+-                  const char * action, struct UPNParg * args,
+-                  int * bufsize)
+-{
+-	char * buf;
++char *simpleUPnPcommand(int s, const char *url, const char *service,
++                        const char *action, struct UPNParg *args,
++                        int *bufsize) {
++  char *buf;
+ 
+ #if 1
+-	buf = simpleUPnPcommand2((SOCKET)s, url, service, action, args, bufsize, "1.1");
++  buf =
++      simpleUPnPcommand2((SOCKET)s, url, service, action, args, bufsize, "1.1");
+ #else
+-	buf = simpleUPnPcommand2((SOCKET)s, url, service, action, args, bufsize, "1.0");
+-	if (!buf || *bufsize == 0)
+-	{
++  buf =
++      simpleUPnPcommand2((SOCKET)s, url, service, action, args, bufsize, "1.0");
++  if (!buf || *bufsize == 0) {
+ #if DEBUG
+-	    printf("Error or no result from SOAP request; retrying with HTTP/1.1\n");
++    printf("Error or no result from SOAP request; retrying with HTTP/1.1\n");
+ #endif
+-		buf = simpleUPnPcommand2((SOCKET)s, url, service, action, args, bufsize, "1.1");
+-	}
++    buf = simpleUPnPcommand2((SOCKET)s, url, service, action, args, bufsize,
++                             "1.1");
++  }
+ #endif
+-	return buf;
++  return buf;
+ }
+ 
+ /* upnpDiscoverDevices() :
+@@ -265,270 +262,240 @@ simpleUPnPcommand(int s, const char * url, const char * service,
+  *   The TTL for the IP packet SHOULD default to 2 and
+  *   SHOULD be configurable. */
+ MINIUPNP_LIBSPEC struct UPNPDev *
+-upnpDiscoverDevices(const char * const deviceTypes[],
+-                    int delay, const char * multicastif,
+-                    const char * minissdpdsock, int localport,
+-                    int ipv6, unsigned char ttl,
+-                    int * error,
+-                    int searchalltypes)
+-{
+-	struct UPNPDev * tmp;
+-	struct UPNPDev * devlist = 0;
++upnpDiscoverDevices(const char *const deviceTypes[], int delay,
++                    const char *multicastif, const char *minissdpdsock,
++                    int localport, int ipv6, unsigned char ttl, int *error,
++                    int searchalltypes) {
++  struct UPNPDev *tmp;
++  struct UPNPDev *devlist = 0;
+ #if !defined(_WIN32) && !defined(__amigaos__) && !defined(__amigaos4__)
+-	int deviceIndex;
+-#endif /* !defined(_WIN32) && !defined(__amigaos__) && !defined(__amigaos4__) */
++  int deviceIndex;
++#endif /* !defined(_WIN32) && !defined(__amigaos__) && !defined(__amigaos4__)  \
++        */
+ 
+-	if(error)
+-		*error = UPNPDISCOVER_UNKNOWN_ERROR;
++  if (error)
++    *error = UPNPDISCOVER_UNKNOWN_ERROR;
+ #if !defined(_WIN32) && !defined(__amigaos__) && !defined(__amigaos4__)
+-	/* first try to get infos from minissdpd ! */
+-	if(!minissdpdsock)
+-		minissdpdsock = "/var/run/minissdpd.sock";
+-	if(minissdpdsock[0] != '\0') {
+-		for(deviceIndex = 0; deviceTypes[deviceIndex]; deviceIndex++) {
+-			struct UPNPDev * minissdpd_devlist;
+-			int only_rootdevice = 1;
+-			minissdpd_devlist = getDevicesFromMiniSSDPD(deviceTypes[deviceIndex],
+-			                                            minissdpdsock, 0);
+-			if(minissdpd_devlist) {
++  /* first try to get infos from minissdpd ! */
++  if (!minissdpdsock)
++    minissdpdsock = "/var/run/minissdpd.sock";
++  if (minissdpdsock[0] != '\0') {
++    for (deviceIndex = 0; deviceTypes[deviceIndex]; deviceIndex++) {
++      struct UPNPDev *minissdpd_devlist;
++      int only_rootdevice = 1;
++      minissdpd_devlist =
++          getDevicesFromMiniSSDPD(deviceTypes[deviceIndex], minissdpdsock, 0);
++      if (minissdpd_devlist) {
+ #ifdef DEBUG
+-				printf("returned by MiniSSDPD: %s\t%s\n",
+-				       minissdpd_devlist->st, minissdpd_devlist->descURL);
++        printf("returned by MiniSSDPD: %s\t%s\n", minissdpd_devlist->st,
++               minissdpd_devlist->descURL);
+ #endif /* DEBUG */
+-				if(!strstr(minissdpd_devlist->st, "rootdevice"))
+-					only_rootdevice = 0;
+-				for(tmp = minissdpd_devlist; tmp->pNext != NULL; tmp = tmp->pNext) {
++        if (!strstr(minissdpd_devlist->st, "rootdevice"))
++          only_rootdevice = 0;
++        for (tmp = minissdpd_devlist; tmp->pNext != NULL; tmp = tmp->pNext) {
+ #ifdef DEBUG
+-					printf("returned by MiniSSDPD: %s\t%s\n",
+-					       tmp->pNext->st, tmp->pNext->descURL);
++          printf("returned by MiniSSDPD: %s\t%s\n", tmp->pNext->st,
++                 tmp->pNext->descURL);
+ #endif /* DEBUG */
+-					if(!strstr(tmp->st, "rootdevice"))
+-						only_rootdevice = 0;
+-				}
+-				tmp->pNext = devlist;
+-				devlist = minissdpd_devlist;
+-				if(!searchalltypes && !only_rootdevice)
+-					break;
+-			}
+-		}
+-	}
+-	for(tmp = devlist; tmp != NULL; tmp = tmp->pNext) {
+-		/* We return what we have found if it was not only a rootdevice */
+-		if(!strstr(tmp->st, "rootdevice")) {
+-			if(error)
+-				*error = UPNPDISCOVER_SUCCESS;
+-			return devlist;
+-		}
+-	}
+-#else	/* !defined(_WIN32) && !defined(__amigaos__) && !defined(__amigaos4__) */
+-	(void)minissdpdsock; /* unused */
+-#endif	/* !defined(_WIN32) && !defined(__amigaos__) && !defined(__amigaos4__) */
+-
+-	/* direct discovery if minissdpd responses are not sufficient */
+-	{
+-		struct UPNPDev * discovered_devlist;
+-		discovered_devlist = ssdpDiscoverDevices(deviceTypes, delay, multicastif, localport,
+-		                                         ipv6, ttl, error, searchalltypes);
+-		if(devlist == NULL)
+-			devlist = discovered_devlist;
+-		else {
+-			for(tmp = devlist; tmp->pNext != NULL; tmp = tmp->pNext);
+-			tmp->pNext = discovered_devlist;
+-		}
+-	}
+-	return devlist;
++          if (!strstr(tmp->st, "rootdevice"))
++            only_rootdevice = 0;
++        }
++        tmp->pNext = devlist;
++        devlist = minissdpd_devlist;
++        if (!searchalltypes && !only_rootdevice)
++          break;
++      }
++    }
++  }
++  for (tmp = devlist; tmp != NULL; tmp = tmp->pNext) {
++    /* We return what we have found if it was not only a rootdevice */
++    if (!strstr(tmp->st, "rootdevice")) {
++      if (error)
++        *error = UPNPDISCOVER_SUCCESS;
++      return devlist;
++    }
++  }
++#else  /* !defined(_WIN32) && !defined(__amigaos__) && !defined(__amigaos4__)  \
++        */
++  (void)minissdpdsock; /* unused */
++#endif /* !defined(_WIN32) && !defined(__amigaos__) && !defined(__amigaos4__)  \
++        */
++
++  /* direct discovery if minissdpd responses are not sufficient */
++  {
++    struct UPNPDev *discovered_devlist;
++    discovered_devlist =
++        ssdpDiscoverDevices(deviceTypes, delay, multicastif, localport, ipv6,
++                            ttl, error, searchalltypes);
++    if (devlist == NULL)
++      devlist = discovered_devlist;
++    else {
++      for (tmp = devlist; tmp->pNext != NULL; tmp = tmp->pNext)
++        ;
++      tmp->pNext = discovered_devlist;
++    }
++  }
++  return devlist;
+ }
+ 
+ /* upnpDiscover() Discover IGD device */
+ MINIUPNP_LIBSPEC struct UPNPDev *
+-upnpDiscover(int delay, const char * multicastif,
+-             const char * minissdpdsock, int localport,
+-             int ipv6, unsigned char ttl,
+-             int * error)
+-{
+-	static const char * const deviceList[] = {
++upnpDiscover(int delay, const char *multicastif, const char *minissdpdsock,
++             int localport, int ipv6, unsigned char ttl, int *error) {
++  static const char *const deviceList[] = {
+ #if 0
+ 		"urn:schemas-upnp-org:device:InternetGatewayDevice:2",
+ 		"urn:schemas-upnp-org:service:WANIPConnection:2",
+ #endif
+-		"urn:schemas-upnp-org:device:InternetGatewayDevice:1",
+-		"urn:schemas-upnp-org:service:WANIPConnection:1",
+-		"urn:schemas-upnp-org:service:WANPPPConnection:1",
+-		"upnp:rootdevice",
+-		/*"ssdp:all",*/
+-		0
+-	};
+-	return upnpDiscoverDevices(deviceList,
+-	                           delay, multicastif, minissdpdsock, localport,
+-	                           ipv6, ttl, error, 0);
++      "urn:schemas-upnp-org:device:InternetGatewayDevice:1",
++      "urn:schemas-upnp-org:service:WANIPConnection:1",
++      "urn:schemas-upnp-org:service:WANPPPConnection:1", "upnp:rootdevice",
++      /*"ssdp:all",*/
++      0};
++  return upnpDiscoverDevices(deviceList, delay, multicastif, minissdpdsock,
++                             localport, ipv6, ttl, error, 0);
+ }
+ 
+ /* upnpDiscoverAll() Discover all UPnP devices */
+ MINIUPNP_LIBSPEC struct UPNPDev *
+-upnpDiscoverAll(int delay, const char * multicastif,
+-                const char * minissdpdsock, int localport,
+-                int ipv6, unsigned char ttl,
+-                int * error)
+-{
+-	static const char * const deviceList[] = {
+-		/*"upnp:rootdevice",*/
+-		"ssdp:all",
+-		0
+-	};
+-	return upnpDiscoverDevices(deviceList,
+-	                           delay, multicastif, minissdpdsock, localport,
+-	                           ipv6, ttl, error, 0);
++upnpDiscoverAll(int delay, const char *multicastif, const char *minissdpdsock,
++                int localport, int ipv6, unsigned char ttl, int *error) {
++  static const char *const deviceList[] = {/*"upnp:rootdevice",*/
++                                           "ssdp:all", 0};
++  return upnpDiscoverDevices(deviceList, delay, multicastif, minissdpdsock,
++                             localport, ipv6, ttl, error, 0);
+ }
+ 
+ /* upnpDiscoverDevice() Discover a specific device */
+ MINIUPNP_LIBSPEC struct UPNPDev *
+-upnpDiscoverDevice(const char * device, int delay, const char * multicastif,
+-                const char * minissdpdsock, int localport,
+-                int ipv6, unsigned char ttl,
+-                int * error)
+-{
+-	const char * const deviceList[] = {
+-		device,
+-		0
+-	};
+-	return upnpDiscoverDevices(deviceList,
+-	                           delay, multicastif, minissdpdsock, localport,
+-	                           ipv6, ttl, error, 0);
++upnpDiscoverDevice(const char *device, int delay, const char *multicastif,
++                   const char *minissdpdsock, int localport, int ipv6,
++                   unsigned char ttl, int *error) {
++  const char *const deviceList[] = {device, 0};
++  return upnpDiscoverDevices(deviceList, delay, multicastif, minissdpdsock,
++                             localport, ipv6, ttl, error, 0);
+ }
+ 
+-static char *
+-build_absolute_url(const char * baseurl, const char * descURL,
+-                   const char * url, unsigned int scope_id)
+-{
+-	size_t l, n;
+-	char * s;
+-	const char * base;
+-	char * p;
+-#if defined(IF_NAMESIZE) && !defined(_WIN32)
+-	char ifname[IF_NAMESIZE];
+-#else /* defined(IF_NAMESIZE) && !defined(_WIN32) */
+-	char scope_str[8];
+-#endif	/* defined(IF_NAMESIZE) && !defined(_WIN32) */
+-
+-	if(  (url[0] == 'h')
+-	   &&(url[1] == 't')
+-	   &&(url[2] == 't')
+-	   &&(url[3] == 'p')
+-	   &&(url[4] == ':')
+-	   &&(url[5] == '/')
+-	   &&(url[6] == '/'))
+-		return strdup(url);
+-	base = (baseurl[0] == '\0') ? descURL : baseurl;
+-	n = strlen(base);
+-	if(n > 7) {
+-		p = strchr(base + 7, '/');
+-		if(p)
+-			n = p - base;
+-	}
+-	l = n + strlen(url) + 1;
+-	if(url[0] != '/')
+-		l++;
+-	if(scope_id != 0) {
+-#if defined(IF_NAMESIZE) && !defined(_WIN32)
+-		if(if_indextoname(scope_id, ifname)) {
+-			l += 3 + strlen(ifname);	/* 3 == strlen(%25) */
+-		}
+-#else /* defined(IF_NAMESIZE) && !defined(_WIN32) */
+-		/* under windows, scope is numerical */
+-		l += 3 + snprintf(scope_str, sizeof(scope_str), "%u", scope_id);
++static char *build_absolute_url(const char *baseurl, const char *descURL,
++                                const char *url, unsigned int scope_id) {
++  size_t l, n;
++  char *s;
++  const char *base;
++  char *p;
++#if defined(IF_NAMESIZE) && !defined(_WIN32) && !defined(__SWITCH__)
++  char ifname[IF_NAMESIZE];
++#else  /* defined(IF_NAMESIZE) && !defined(_WIN32) */
++  char scope_str[8];
++#endif /* defined(IF_NAMESIZE) && !defined(_WIN32) */
++
++  if ((url[0] == 'h') && (url[1] == 't') && (url[2] == 't') &&
++      (url[3] == 'p') && (url[4] == ':') && (url[5] == '/') && (url[6] == '/'))
++    return strdup(url);
++  base = (baseurl[0] == '\0') ? descURL : baseurl;
++  n = strlen(base);
++  if (n > 7) {
++    p = strchr(base + 7, '/');
++    if (p)
++      n = p - base;
++  }
++  l = n + strlen(url) + 1;
++  if (url[0] != '/')
++    l++;
++  if (scope_id != 0) {
++#if defined(IF_NAMESIZE) && !defined(_WIN32) && !defined(__SWITCH__)
++    if (if_indextoname(scope_id, ifname)) {
++      l += 3 + strlen(ifname); /* 3 == strlen(%25) */
++    }
++#else  /* defined(IF_NAMESIZE) && !defined(_WIN32) */
++    /* under windows, scope is numerical */
++    l += 3 + snprintf(scope_str, sizeof(scope_str), "%u", scope_id);
+ #endif /* defined(IF_NAMESIZE) && !defined(_WIN32) */
+-	}
+-	s = malloc(l);
+-	if(s == NULL) return NULL;
+-	memcpy(s, base, n);
+-	if(scope_id != 0) {
+-		s[n] = '\0';
+-		if(n > 13 && 0 == memcmp(s, "http://[fe80:", 13)) {
+-			/* this is a linklocal IPv6 address */
+-			p = strchr(s, ']');
+-			if(p) {
+-				/* insert %25<scope> into URL */
+-#if defined(IF_NAMESIZE) && !defined(_WIN32)
+-				memmove(p + 3 + strlen(ifname), p, strlen(p) + 1);
+-				memcpy(p, "%25", 3);
+-				memcpy(p + 3, ifname, strlen(ifname));
+-				n += 3 + strlen(ifname);
+-#else /* defined(IF_NAMESIZE) && !defined(_WIN32) */
+-				memmove(p + 3 + strlen(scope_str), p, strlen(p) + 1);
+-				memcpy(p, "%25", 3);
+-				memcpy(p + 3, scope_str, strlen(scope_str));
+-				n += 3 + strlen(scope_str);
++  }
++  s = malloc(l);
++  if (s == NULL)
++    return NULL;
++  memcpy(s, base, n);
++  if (scope_id != 0) {
++    s[n] = '\0';
++    if (n > 13 && 0 == memcmp(s, "http://[fe80:", 13)) {
++      /* this is a linklocal IPv6 address */
++      p = strchr(s, ']');
++      if (p) {
++        /* insert %25<scope> into URL */
++#if defined(IF_NAMESIZE) && !defined(_WIN32) && !defined(__SWITCH__)
++        memmove(p + 3 + strlen(ifname), p, strlen(p) + 1);
++        memcpy(p, "%25", 3);
++        memcpy(p + 3, ifname, strlen(ifname));
++        n += 3 + strlen(ifname);
++#else  /* defined(IF_NAMESIZE) && !defined(_WIN32) */
++        memmove(p + 3 + strlen(scope_str), p, strlen(p) + 1);
++        memcpy(p, "%25", 3);
++        memcpy(p + 3, scope_str, strlen(scope_str));
++        n += 3 + strlen(scope_str);
+ #endif /* defined(IF_NAMESIZE) && !defined(_WIN32) */
+-			}
+-		}
+-	}
+-	if(url[0] != '/')
+-		s[n++] = '/';
+-	memcpy(s + n, url, l - n);
+-	return s;
++      }
++    }
++  }
++  if (url[0] != '/')
++    s[n++] = '/';
++  memcpy(s + n, url, l - n);
++  return s;
+ }
+ 
+ /* Prepare the Urls for usage...
+  */
+-MINIUPNP_LIBSPEC void
+-GetUPNPUrls(struct UPNPUrls * urls, struct IGDdatas * data,
+-            const char * descURL, unsigned int scope_id)
+-{
+-	/* strdup descURL */
+-	urls->rootdescURL = strdup(descURL);
+-
+-	/* get description of WANIPConnection */
+-	urls->ipcondescURL = build_absolute_url(data->urlbase, descURL,
+-	                                        data->first.scpdurl, scope_id);
+-	urls->controlURL = build_absolute_url(data->urlbase, descURL,
+-	                                      data->first.controlurl, scope_id);
+-	urls->controlURL_CIF = build_absolute_url(data->urlbase, descURL,
+-	                                          data->CIF.controlurl, scope_id);
+-	urls->controlURL_6FC = build_absolute_url(data->urlbase, descURL,
+-	                                          data->IPv6FC.controlurl, scope_id);
++MINIUPNP_LIBSPEC void GetUPNPUrls(struct UPNPUrls *urls, struct IGDdatas *data,
++                                  const char *descURL, unsigned int scope_id) {
++  /* strdup descURL */
++  urls->rootdescURL = strdup(descURL);
++
++  /* get description of WANIPConnection */
++  urls->ipcondescURL =
++      build_absolute_url(data->urlbase, descURL, data->first.scpdurl, scope_id);
++  urls->controlURL = build_absolute_url(data->urlbase, descURL,
++                                        data->first.controlurl, scope_id);
++  urls->controlURL_CIF = build_absolute_url(data->urlbase, descURL,
++                                            data->CIF.controlurl, scope_id);
++  urls->controlURL_6FC = build_absolute_url(data->urlbase, descURL,
++                                            data->IPv6FC.controlurl, scope_id);
+ 
+ #ifdef DEBUG
+-	printf("urls->ipcondescURL='%s'\n", urls->ipcondescURL);
+-	printf("urls->controlURL='%s'\n", urls->controlURL);
+-	printf("urls->controlURL_CIF='%s'\n", urls->controlURL_CIF);
+-	printf("urls->controlURL_6FC='%s'\n", urls->controlURL_6FC);
++  printf("urls->ipcondescURL='%s'\n", urls->ipcondescURL);
++  printf("urls->controlURL='%s'\n", urls->controlURL);
++  printf("urls->controlURL_CIF='%s'\n", urls->controlURL_CIF);
++  printf("urls->controlURL_6FC='%s'\n", urls->controlURL_6FC);
+ #endif
+ }
+ 
+-MINIUPNP_LIBSPEC void
+-FreeUPNPUrls(struct UPNPUrls * urls)
+-{
+-	if(!urls)
+-		return;
+-	free(urls->controlURL);
+-	urls->controlURL = 0;
+-	free(urls->ipcondescURL);
+-	urls->ipcondescURL = 0;
+-	free(urls->controlURL_CIF);
+-	urls->controlURL_CIF = 0;
+-	free(urls->controlURL_6FC);
+-	urls->controlURL_6FC = 0;
+-	free(urls->rootdescURL);
+-	urls->rootdescURL = 0;
++MINIUPNP_LIBSPEC void FreeUPNPUrls(struct UPNPUrls *urls) {
++  if (!urls)
++    return;
++  free(urls->controlURL);
++  urls->controlURL = 0;
++  free(urls->ipcondescURL);
++  urls->ipcondescURL = 0;
++  free(urls->controlURL_CIF);
++  urls->controlURL_CIF = 0;
++  free(urls->controlURL_6FC);
++  urls->controlURL_6FC = 0;
++  free(urls->rootdescURL);
++  urls->rootdescURL = 0;
+ }
+ 
+-int
+-UPNPIGD_IsConnected(struct UPNPUrls * urls, struct IGDdatas * data)
+-{
+-	char status[64];
+-	unsigned int uptime;
+-	status[0] = '\0';
+-	UPNP_GetStatusInfo(urls->controlURL, data->first.servicetype,
+-	                   status, &uptime, NULL);
+-	if(0 == strcmp("Connected", status))
+-		return 1;
+-	else if(0 == strcmp("Up", status))	/* Also accept "Up" */
+-		return 1;
+-	else
+-		return 0;
++int UPNPIGD_IsConnected(struct UPNPUrls *urls, struct IGDdatas *data) {
++  char status[64];
++  unsigned int uptime;
++  status[0] = '\0';
++  UPNP_GetStatusInfo(urls->controlURL, data->first.servicetype, status, &uptime,
++                     NULL);
++  if (0 == strcmp("Connected", status))
++    return 1;
++  else if (0 == strcmp("Up", status)) /* Also accept "Up" */
++    return 1;
++  else
++    return 0;
+ }
+ 
+-
+ /* UPNP_GetValidIGD() :
+  * return values :
+  *    -1 = Internal error
+@@ -544,141 +511,136 @@ UPNPIGD_IsConnected(struct UPNPUrls * urls, struct IGDdatas * data)
+  * passed as parameters are set. Don't forget to call FreeUPNPUrls(urls) to
+  * free allocated memory.
+  */
+-MINIUPNP_LIBSPEC int
+-UPNP_GetValidIGD(struct UPNPDev * devlist,
+-                 struct UPNPUrls * urls,
+-                 struct IGDdatas * data,
+-                 char * lanaddr, int lanaddrlen,
+-                 char * wanaddr, int wanaddrlen)
+-{
+-	struct xml_desc {
+-		char lanaddr[40];
+-		char wanaddr[40];
+-		char * xml;
+-		int size;
+-		int is_igd;
+-	} * desc = NULL;
+-	struct UPNPDev * dev;
+-	int ndev = 0;
+-	int i;
+-	int state = -1; /* state 1 : IGD connected. State 2 : connected with reserved IP.
+-	                 * State 3 : IGD. State 4 : anything */
+-	int status_code = -1;
+-
+-	if(!devlist)
+-	{
++MINIUPNP_LIBSPEC int UPNP_GetValidIGD(struct UPNPDev *devlist,
++                                      struct UPNPUrls *urls,
++                                      struct IGDdatas *data, char *lanaddr,
++                                      int lanaddrlen, char *wanaddr,
++                                      int wanaddrlen) {
++  struct xml_desc {
++    char lanaddr[40];
++    char wanaddr[40];
++    char *xml;
++    int size;
++    int is_igd;
++  } *desc = NULL;
++  struct UPNPDev *dev;
++  int ndev = 0;
++  int i;
++  int state = -1; /* state 1 : IGD connected. State 2 : connected with reserved
++                   * IP. State 3 : IGD. State 4 : anything */
++  int status_code = -1;
++
++  if (!devlist) {
+ #ifdef DEBUG
+-		printf("Empty devlist\n");
++    printf("Empty devlist\n");
+ #endif
+-		return 0;
+-	}
+-	/* counting total number of devices in the list */
+-	for(dev = devlist; dev; dev = dev->pNext)
+-		ndev++;
+-	/* ndev is always > 0 */
+-	desc = calloc(ndev, sizeof(struct xml_desc));
+-	if(!desc)
+-		return -1; /* memory allocation error */
+-	/* Step 1 : downloading descriptions and testing type */
+-	for(dev = devlist, i = 0; dev; dev = dev->pNext, i++)
+-	{
+-		/* we should choose an internet gateway device.
+-		 * with st == urn:schemas-upnp-org:device:InternetGatewayDevice:1 */
+-		desc[i].xml = miniwget_getaddr(dev->descURL, &(desc[i].size),
+-		                               desc[i].lanaddr, sizeof(desc[i].lanaddr),
+-		                               dev->scope_id, &status_code);
++    return 0;
++  }
++  /* counting total number of devices in the list */
++  for (dev = devlist; dev; dev = dev->pNext)
++    ndev++;
++  /* ndev is always > 0 */
++  desc = calloc(ndev, sizeof(struct xml_desc));
++  if (!desc)
++    return -1; /* memory allocation error */
++  /* Step 1 : downloading descriptions and testing type */
++  for (dev = devlist, i = 0; dev; dev = dev->pNext, i++) {
++    /* we should choose an internet gateway device.
++     * with st == urn:schemas-upnp-org:device:InternetGatewayDevice:1 */
++    desc[i].xml =
++        miniwget_getaddr(dev->descURL, &(desc[i].size), desc[i].lanaddr,
++                         sizeof(desc[i].lanaddr), dev->scope_id, &status_code);
+ #ifdef DEBUG
+-		if(!desc[i].xml)
+-		{
+-			printf("error getting XML description %s\n", dev->descURL);
+-		}
++    if (!desc[i].xml) {
++      printf("error getting XML description %s\n", dev->descURL);
++    }
+ #endif
+-		if(desc[i].xml)
+-		{
+-			memset(data, 0, sizeof(struct IGDdatas));
+-			memset(urls, 0, sizeof(struct UPNPUrls));
+-			parserootdesc(desc[i].xml, desc[i].size, data);
+-			if(COMPARE(data->CIF.servicetype,
+-			           "urn:schemas-upnp-org:service:WANCommonInterfaceConfig:"))
+-			{
+-				desc[i].is_igd = 1;
+-			}
+-		}
+-	}
+-	/* iterate the list to find a device depending on state */
+-	for(state = 1; state <= 4; state++)
+-	{
+-		for(dev = devlist, i = 0; dev; dev = dev->pNext, i++)
+-		{
+-			if(desc[i].xml)
+-			{
+-				memset(data, 0, sizeof(struct IGDdatas));
+-				memset(urls, 0, sizeof(struct UPNPUrls));
+-				parserootdesc(desc[i].xml, desc[i].size, data);
+-				if(desc[i].is_igd || state >= 4 )
+-				{
+-				  int is_connected;
+-
+-				  GetUPNPUrls(urls, data, dev->descURL, dev->scope_id);
+-
+-				  /* in state 3 and 4 we don't test if device is connected ! */
+-				  if(state >= 3)
+-				    goto free_and_return;
+-				  is_connected = UPNPIGD_IsConnected(urls, data);
++    if (desc[i].xml) {
++      memset(data, 0, sizeof(struct IGDdatas));
++      memset(urls, 0, sizeof(struct UPNPUrls));
++      parserootdesc(desc[i].xml, desc[i].size, data);
++      if (COMPARE(data->CIF.servicetype,
++                  "urn:schemas-upnp-org:service:WANCommonInterfaceConfig:")) {
++        desc[i].is_igd = 1;
++      }
++    }
++  }
++  /* iterate the list to find a device depending on state */
++  for (state = 1; state <= 4; state++) {
++    for (dev = devlist, i = 0; dev; dev = dev->pNext, i++) {
++      if (desc[i].xml) {
++        memset(data, 0, sizeof(struct IGDdatas));
++        memset(urls, 0, sizeof(struct UPNPUrls));
++        parserootdesc(desc[i].xml, desc[i].size, data);
++        if (desc[i].is_igd || state >= 4) {
++          int is_connected;
++
++          GetUPNPUrls(urls, data, dev->descURL, dev->scope_id);
++
++          /* in state 3 and 4 we don't test if device is connected ! */
++          if (state >= 3)
++            goto free_and_return;
++          is_connected = UPNPIGD_IsConnected(urls, data);
+ #ifdef DEBUG
+-				  printf("UPNPIGD_IsConnected(%s) = %d\n",
+-				     urls->controlURL, is_connected);
++          printf("UPNPIGD_IsConnected(%s) = %d\n", urls->controlURL,
++                 is_connected);
+ #endif
+-				  /* checks that status is connected AND there is a external IP address assigned */
+-				  if(is_connected) {
+-					if(state >= 2)
+-					  goto free_and_return;
+-				    if(UPNP_GetExternalIPAddress(urls->controlURL, data->first.servicetype, desc[i].wanaddr) == 0
+-					   && !addr_is_reserved(desc[i].wanaddr))
+-					  goto free_and_return;
+-				  }
+-				  FreeUPNPUrls(urls);
+-				  if(data->second.servicetype[0] != '\0') {
++          /* checks that status is connected AND there is a external IP address
++           * assigned */
++          if (is_connected) {
++            if (state >= 2)
++              goto free_and_return;
++            if (UPNP_GetExternalIPAddress(urls->controlURL,
++                                          data->first.servicetype,
++                                          desc[i].wanaddr) == 0 &&
++                !addr_is_reserved(desc[i].wanaddr))
++              goto free_and_return;
++          }
++          FreeUPNPUrls(urls);
++          if (data->second.servicetype[0] != '\0') {
+ #ifdef DEBUG
+-				    printf("We tried %s, now we try %s !\n",
+-				           data->first.servicetype, data->second.servicetype);
++            printf("We tried %s, now we try %s !\n", data->first.servicetype,
++                   data->second.servicetype);
+ #endif
+-				    /* swaping WANPPPConnection and WANIPConnection ! */
+-				    memcpy(&data->tmp, &data->first, sizeof(struct IGDdatas_service));
+-				    memcpy(&data->first, &data->second, sizeof(struct IGDdatas_service));
+-				    memcpy(&data->second, &data->tmp, sizeof(struct IGDdatas_service));
+-				    GetUPNPUrls(urls, data, dev->descURL, dev->scope_id);
+-				    is_connected = UPNPIGD_IsConnected(urls, data);
++            /* swaping WANPPPConnection and WANIPConnection ! */
++            memcpy(&data->tmp, &data->first, sizeof(struct IGDdatas_service));
++            memcpy(&data->first, &data->second,
++                   sizeof(struct IGDdatas_service));
++            memcpy(&data->second, &data->tmp, sizeof(struct IGDdatas_service));
++            GetUPNPUrls(urls, data, dev->descURL, dev->scope_id);
++            is_connected = UPNPIGD_IsConnected(urls, data);
+ #ifdef DEBUG
+-				    printf("UPNPIGD_IsConnected(%s) = %d\n",
+-				       urls->controlURL, is_connected);
++            printf("UPNPIGD_IsConnected(%s) = %d\n", urls->controlURL,
++                   is_connected);
+ #endif
+-				    if(is_connected) {
+-					  if(state >= 2)
+-					    goto free_and_return;
+-				      if(UPNP_GetExternalIPAddress(urls->controlURL, data->first.servicetype, desc[i].wanaddr) == 0
+-					     && !addr_is_reserved(desc[i].wanaddr))
+-					    goto free_and_return;
+-				    }
+-				    FreeUPNPUrls(urls);
+-				  }
+-				}
+-				memset(data, 0, sizeof(struct IGDdatas));
+-			}
+-		}
+-	}
+-	state = 0;
++            if (is_connected) {
++              if (state >= 2)
++                goto free_and_return;
++              if (UPNP_GetExternalIPAddress(urls->controlURL,
++                                            data->first.servicetype,
++                                            desc[i].wanaddr) == 0 &&
++                  !addr_is_reserved(desc[i].wanaddr))
++                goto free_and_return;
++            }
++            FreeUPNPUrls(urls);
++          }
++        }
++        memset(data, 0, sizeof(struct IGDdatas));
++      }
++    }
++  }
++  state = 0;
+ free_and_return:
+-	if (state >= 1 && state <= 4 && i < ndev) {
+-		if (lanaddr != NULL)
+-			strncpy(lanaddr, desc[i].lanaddr, lanaddrlen);
+-		if (wanaddr != NULL)
+-			strncpy(wanaddr, desc[i].wanaddr, wanaddrlen);
+-	}
+-	for(i = 0; i < ndev; i++)
+-		free(desc[i].xml);
+-	free(desc);
+-	return state;
++  if (state >= 1 && state <= 4 && i < ndev) {
++    if (lanaddr != NULL)
++      strncpy(lanaddr, desc[i].lanaddr, lanaddrlen);
++    if (wanaddr != NULL)
++      strncpy(wanaddr, desc[i].wanaddr, wanaddrlen);
++  }
++  for (i = 0; i < ndev; i++)
++    free(desc[i].xml);
++  free(desc);
++  return state;
+ }
+ 
+ /* UPNP_GetIGDFromUrl()
+@@ -686,25 +648,21 @@ free_and_return:
+  * return value :
+  *   0 - Not ok
+  *   1 - OK */
+-int
+-UPNP_GetIGDFromUrl(const char * rootdescurl,
+-                   struct UPNPUrls * urls,
+-                   struct IGDdatas * data,
+-                   char * lanaddr, int lanaddrlen)
+-{
+-	char * descXML;
+-	int descXMLsize = 0;
+-
+-	descXML = miniwget_getaddr(rootdescurl, &descXMLsize,
+-	                           lanaddr, lanaddrlen, 0, NULL);
+-	if(descXML) {
+-		memset(data, 0, sizeof(struct IGDdatas));
+-		memset(urls, 0, sizeof(struct UPNPUrls));
+-		parserootdesc(descXML, descXMLsize, data);
+-		free(descXML);
+-		GetUPNPUrls(urls, data, rootdescurl, 0);
+-		return 1;
+-	} else {
+-		return 0;
+-	}
++int UPNP_GetIGDFromUrl(const char *rootdescurl, struct UPNPUrls *urls,
++                       struct IGDdatas *data, char *lanaddr, int lanaddrlen) {
++  char *descXML;
++  int descXMLsize = 0;
++
++  descXML =
++      miniwget_getaddr(rootdescurl, &descXMLsize, lanaddr, lanaddrlen, 0, NULL);
++  if (descXML) {
++    memset(data, 0, sizeof(struct IGDdatas));
++    memset(urls, 0, sizeof(struct UPNPUrls));
++    parserootdesc(descXML, descXMLsize, data);
++    free(descXML);
++    GetUPNPUrls(urls, data, rootdescurl, 0);
++    return 1;
++  } else {
++    return 0;
++  }
+ }
+diff --git a/ext/miniupnp/miniupnpc/src/miniwget.c b/miniupnpc/src/miniwget.c
+index e76a5e5..cdaac68 100644
+--- a/ext/miniupnp/miniupnpc/src/miniwget.c
++++ b/ext/miniupnp/miniupnpc/src/miniwget.c
+@@ -6,14 +6,14 @@
+  * This software is subject to the conditions detailed in the
+  * LICENCE file provided in this distribution. */
+ 
++#include <ctype.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <ctype.h>
+ #ifdef _WIN32
++#include <io.h>
+ #include <winsock2.h>
+ #include <ws2tcpip.h>
+-#include <io.h>
+ #define MAXHOSTNAMELEN 64
+ #include "win32_snprintf.h"
+ #define socklen_t int
+@@ -24,19 +24,19 @@
+ #define strncasecmp memicmp
+ #endif /* defined(_MSC_VER) && (_MSC_VER >= 1400) */
+ #endif /* #ifndef strncasecmp */
+-#else /* #ifdef _WIN32 */
+-#include <unistd.h>
++#else  /* #ifdef _WIN32 */
+ #include <sys/param.h>
++#include <unistd.h>
+ #if defined(__amigaos__) && !defined(__amigaos4__)
+ #define socklen_t int
+ #else /* #if defined(__amigaos__) && !defined(__amigaos4__) */
+ #include <sys/select.h>
+ #endif /* #else defined(__amigaos__) && !defined(__amigaos4__) */
+-#include <sys/socket.h>
+-#include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <net/if.h>
+ #include <netdb.h>
++#include <netinet/in.h>
++#include <sys/socket.h>
+ #define closesocket close
+ #include <strings.h>
+ #endif /* #else _WIN32 */
+@@ -45,13 +45,12 @@
+ #endif /* __GNU__ */
+ 
+ #ifndef MIN
+-#define MIN(x,y) (((x)<(y))?(x):(y))
++#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+ #endif /* MIN */
+ 
+-
++#include "connecthostport.h"
+ #include "miniupnpcstrings.h"
+ #include "miniwget.h"
+-#include "connecthostport.h"
+ #include "receivedata.h"
+ 
+ #ifndef MAXHOSTNAMELEN
+@@ -64,350 +63,330 @@
+  * return a pointer to the content buffer, which length is saved
+  * to the length parameter.
+  */
+-void *
+-getHTTPResponse(SOCKET s, int * size, int * status_code)
+-{
+-	char buf[2048];
+-	int n;
+-	int endofheaders = 0;
+-	int chunked = 0;
+-	int content_length = -1;
+-	unsigned int chunksize = 0;
+-	unsigned int bytestocopy = 0;
+-	/* buffers : */
+-	char * header_buf;
+-	unsigned int header_buf_len = 2048;
+-	unsigned int header_buf_used = 0;
+-	char * content_buf;
+-	unsigned int content_buf_len = 2048;
+-	unsigned int content_buf_used = 0;
+-	char chunksize_buf[32];
+-	unsigned int chunksize_buf_index;
++void *getHTTPResponse(SOCKET s, int *size, int *status_code) {
++  char buf[2048];
++  int n;
++  int endofheaders = 0;
++  int chunked = 0;
++  int content_length = -1;
++  unsigned int chunksize = 0;
++  unsigned int bytestocopy = 0;
++  /* buffers : */
++  char *header_buf;
++  unsigned int header_buf_len = 2048;
++  unsigned int header_buf_used = 0;
++  char *content_buf;
++  unsigned int content_buf_len = 2048;
++  unsigned int content_buf_used = 0;
++  char chunksize_buf[32];
++  unsigned int chunksize_buf_index;
+ #ifdef DEBUG
+-	char * reason_phrase = NULL;
+-	int reason_phrase_len = 0;
++  char *reason_phrase = NULL;
++  int reason_phrase_len = 0;
+ #endif
+ 
+-	if(status_code) *status_code = -1;
+-	header_buf = malloc(header_buf_len);
+-	if(header_buf == NULL)
+-	{
++  if (status_code)
++    *status_code = -1;
++  header_buf = malloc(header_buf_len);
++  if (header_buf == NULL) {
+ #ifdef DEBUG
+-		fprintf(stderr, "%s: Memory allocation error\n", "getHTTPResponse");
++    fprintf(stderr, "%s: Memory allocation error\n", "getHTTPResponse");
+ #endif /* DEBUG */
+-		*size = -1;
+-		return NULL;
+-	}
+-	content_buf = malloc(content_buf_len);
+-	if(content_buf == NULL)
+-	{
+-		free(header_buf);
++    *size = -1;
++    return NULL;
++  }
++  content_buf = malloc(content_buf_len);
++  if (content_buf == NULL) {
++    free(header_buf);
+ #ifdef DEBUG
+-		fprintf(stderr, "%s: Memory allocation error\n", "getHTTPResponse");
++    fprintf(stderr, "%s: Memory allocation error\n", "getHTTPResponse");
+ #endif /* DEBUG */
+-		*size = -1;
+-		return NULL;
+-	}
+-	chunksize_buf[0] = '\0';
+-	chunksize_buf_index = 0;
++    *size = -1;
++    return NULL;
++  }
++  chunksize_buf[0] = '\0';
++  chunksize_buf_index = 0;
+ 
+-	while((n = receivedata(s, buf, sizeof(buf), 5000, NULL)) > 0)
+-	{
+-		if(endofheaders == 0)
+-		{
+-			int i;
+-			int linestart=0;
+-			int colon=0;
+-			int valuestart=0;
+-			if(header_buf_used + n > header_buf_len) {
+-				char * tmp = realloc(header_buf, header_buf_used + n);
+-				if(tmp == NULL) {
+-					/* memory allocation error */
+-					free(header_buf);
+-					free(content_buf);
+-					*size = -1;
+-					return NULL;
+-				}
+-				header_buf = tmp;
+-				header_buf_len = header_buf_used + n;
+-			}
+-			memcpy(header_buf + header_buf_used, buf, n);
+-			header_buf_used += n;
+-			/* search for CR LF CR LF (end of headers)
+-			 * recognize also LF LF */
+-			i = 0;
+-			while(i < ((int)header_buf_used-1) && (endofheaders == 0)) {
+-				if(header_buf[i] == '\r') {
+-					i++;
+-					if(header_buf[i] == '\n') {
+-						i++;
+-						if(i < (int)header_buf_used && header_buf[i] == '\r') {
+-							i++;
+-							if(i < (int)header_buf_used && header_buf[i] == '\n') {
+-								endofheaders = i+1;
+-							}
+-						}
+-					}
+-				} else if(header_buf[i] == '\n') {
+-					i++;
+-					if(header_buf[i] == '\n') {
+-						endofheaders = i+1;
+-					}
+-				}
+-				i++;
+-			}
+-			if(endofheaders == 0)
+-				continue;
+-			/* parse header lines */
+-			for(i = 0; i < endofheaders - 1; i++) {
+-				if(linestart > 0 && colon <= linestart && header_buf[i]==':')
+-				{
+-					colon = i;
+-					while(i < (endofheaders-1)
+-					      && (header_buf[i+1] == ' ' || header_buf[i+1] == '\t'))
+-						i++;
+-					valuestart = i + 1;
+-				}
+-				/* detecting end of line */
+-				else if(header_buf[i]=='\r' || header_buf[i]=='\n')
+-				{
+-					if(linestart == 0 && status_code)
+-					{
+-						/* Status line
+-						 * HTTP-Version SP Status-Code SP Reason-Phrase CRLF */
+-						int sp;
+-						for(sp = 0; sp < i - 1; sp++)
+-							if(header_buf[sp] == ' ')
+-							{
+-								if(*status_code < 0)
+-								{
+-									if (header_buf[sp+1] >= '1' && header_buf[sp+1] <= '9')
+-										*status_code = atoi(header_buf + sp + 1);
+-								}
+-								else
+-								{
++  while ((n = receivedata(s, buf, sizeof(buf), 5000, NULL)) > 0) {
++    if (endofheaders == 0) {
++      int i;
++      int linestart = 0;
++      int colon = 0;
++      int valuestart = 0;
++      if (header_buf_used + n > header_buf_len) {
++        char *tmp = realloc(header_buf, header_buf_used + n);
++        if (tmp == NULL) {
++          /* memory allocation error */
++          free(header_buf);
++          free(content_buf);
++          *size = -1;
++          return NULL;
++        }
++        header_buf = tmp;
++        header_buf_len = header_buf_used + n;
++      }
++      memcpy(header_buf + header_buf_used, buf, n);
++      header_buf_used += n;
++      /* search for CR LF CR LF (end of headers)
++       * recognize also LF LF */
++      i = 0;
++      while (i < ((int)header_buf_used - 1) && (endofheaders == 0)) {
++        if (header_buf[i] == '\r') {
++          i++;
++          if (header_buf[i] == '\n') {
++            i++;
++            if (i < (int)header_buf_used && header_buf[i] == '\r') {
++              i++;
++              if (i < (int)header_buf_used && header_buf[i] == '\n') {
++                endofheaders = i + 1;
++              }
++            }
++          }
++        } else if (header_buf[i] == '\n') {
++          i++;
++          if (header_buf[i] == '\n') {
++            endofheaders = i + 1;
++          }
++        }
++        i++;
++      }
++      if (endofheaders == 0)
++        continue;
++      /* parse header lines */
++      for (i = 0; i < endofheaders - 1; i++) {
++        if (linestart > 0 && colon <= linestart && header_buf[i] == ':') {
++          colon = i;
++          while (i < (endofheaders - 1) &&
++                 (header_buf[i + 1] == ' ' || header_buf[i + 1] == '\t'))
++            i++;
++          valuestart = i + 1;
++        }
++        /* detecting end of line */
++        else if (header_buf[i] == '\r' || header_buf[i] == '\n') {
++          if (linestart == 0 && status_code) {
++            /* Status line
++             * HTTP-Version SP Status-Code SP Reason-Phrase CRLF */
++            int sp;
++            for (sp = 0; sp < i - 1; sp++)
++              if (header_buf[sp] == ' ') {
++                if (*status_code < 0) {
++                  if (header_buf[sp + 1] >= '1' && header_buf[sp + 1] <= '9')
++                    *status_code = atoi(header_buf + sp + 1);
++                } else {
+ #ifdef DEBUG
+-									reason_phrase = header_buf + sp + 1;
+-									reason_phrase_len = i - sp - 1;
++                  reason_phrase = header_buf + sp + 1;
++                  reason_phrase_len = i - sp - 1;
+ #endif
+-									break;
+-								}
+-							}
++                  break;
++                }
++              }
+ #ifdef DEBUG
+-						printf("HTTP status code = %d, Reason phrase = %.*s\n",
+-						       *status_code, reason_phrase_len, reason_phrase);
++            printf("HTTP status code = %d, Reason phrase = %.*s\n",
++                   *status_code, reason_phrase_len, reason_phrase);
+ #endif
+-					}
+-					else if(colon > linestart && valuestart > colon)
+-					{
++          } else if (colon > linestart && valuestart > colon) {
+ #ifdef DEBUG
+-						printf("header='%.*s', value='%.*s'\n",
+-						       colon-linestart, header_buf+linestart,
+-						       i-valuestart, header_buf+valuestart);
++            printf("header='%.*s', value='%.*s'\n", colon - linestart,
++                   header_buf + linestart, i - valuestart,
++                   header_buf + valuestart);
+ #endif
+-						if(0==strncasecmp(header_buf+linestart, "content-length", colon-linestart))
+-						{
+-							content_length = atoi(header_buf+valuestart);
++            if (0 == strncasecmp(header_buf + linestart, "content-length",
++                                 colon - linestart)) {
++              content_length = atoi(header_buf + valuestart);
+ #ifdef DEBUG
+-							printf("Content-Length: %d\n", content_length);
++              printf("Content-Length: %d\n", content_length);
+ #endif
+-						}
+-						else if(0==strncasecmp(header_buf+linestart, "transfer-encoding", colon-linestart)
+-						   && 0==strncasecmp(header_buf+valuestart, "chunked", 7))
+-						{
++            } else if (0 == strncasecmp(header_buf + linestart,
++                                        "transfer-encoding",
++                                        colon - linestart) &&
++                       0 ==
++                           strncasecmp(header_buf + valuestart, "chunked", 7)) {
+ #ifdef DEBUG
+-							printf("chunked transfer-encoding!\n");
++              printf("chunked transfer-encoding!\n");
+ #endif
+-							chunked = 1;
+-						}
+-					}
+-					while((i < (int)header_buf_used) && (header_buf[i]=='\r' || header_buf[i] == '\n'))
+-						i++;
+-					linestart = i;
+-					colon = linestart;
+-					valuestart = 0;
+-				}
+-			}
+-			/* copy the remaining of the received data back to buf */
+-			n = header_buf_used - endofheaders;
+-			memcpy(buf, header_buf + endofheaders, n);
+-			/* if(headers) */
+-		}
+-		/* if we get there, endofheaders != 0.
+-		 * In the other case, there was a continue above */
+-		/* content */
+-		if(chunked)
+-		{
+-			int i = 0;
+-			while(i < n)
+-			{
+-				if(chunksize == 0)
+-				{
+-					/* reading chunk size */
+-					if(chunksize_buf_index == 0) {
+-						/* skipping any leading CR LF */
+-						if(buf[i] == '\r') i++;
+-						if(i<n && buf[i] == '\n') i++;
+-					}
+-					while(i<n && isxdigit(buf[i])
+-					     && chunksize_buf_index < (sizeof(chunksize_buf)-1))
+-					{
+-						chunksize_buf[chunksize_buf_index++] = buf[i];
+-						chunksize_buf[chunksize_buf_index] = '\0';
+-						i++;
+-					}
+-					while(i<n && buf[i] != '\r' && buf[i] != '\n')
+-						i++; /* discarding chunk-extension */
+-					if(i<n && buf[i] == '\r') i++;
+-					if(i<n && buf[i] == '\n') {
+-						unsigned int j;
+-						for(j = 0; j < chunksize_buf_index; j++) {
+-						if(chunksize_buf[j] >= '0'
+-						   && chunksize_buf[j] <= '9')
+-							chunksize = (chunksize << 4) + (chunksize_buf[j] - '0');
+-						else
+-							chunksize = (chunksize << 4) + ((chunksize_buf[j] | 32) - 'a' + 10);
+-						}
+-						chunksize_buf[0] = '\0';
+-						chunksize_buf_index = 0;
+-						i++;
+-					} else {
+-						/* not finished to get chunksize */
+-						continue;
+-					}
++              chunked = 1;
++            }
++          }
++          while ((i < (int)header_buf_used) &&
++                 (header_buf[i] == '\r' || header_buf[i] == '\n'))
++            i++;
++          linestart = i;
++          colon = linestart;
++          valuestart = 0;
++        }
++      }
++      /* copy the remaining of the received data back to buf */
++      n = header_buf_used - endofheaders;
++      memcpy(buf, header_buf + endofheaders, n);
++      /* if(headers) */
++    }
++    /* if we get there, endofheaders != 0.
++     * In the other case, there was a continue above */
++    /* content */
++    if (chunked) {
++      int i = 0;
++      while (i < n) {
++        if (chunksize == 0) {
++          /* reading chunk size */
++          if (chunksize_buf_index == 0) {
++            /* skipping any leading CR LF */
++            if (buf[i] == '\r')
++              i++;
++            if (i < n && buf[i] == '\n')
++              i++;
++          }
++          while (i < n && isxdigit(buf[i]) &&
++                 chunksize_buf_index < (sizeof(chunksize_buf) - 1)) {
++            chunksize_buf[chunksize_buf_index++] = buf[i];
++            chunksize_buf[chunksize_buf_index] = '\0';
++            i++;
++          }
++          while (i < n && buf[i] != '\r' && buf[i] != '\n')
++            i++; /* discarding chunk-extension */
++          if (i < n && buf[i] == '\r')
++            i++;
++          if (i < n && buf[i] == '\n') {
++            unsigned int j;
++            for (j = 0; j < chunksize_buf_index; j++) {
++              if (chunksize_buf[j] >= '0' && chunksize_buf[j] <= '9')
++                chunksize = (chunksize << 4) + (chunksize_buf[j] - '0');
++              else
++                chunksize =
++                    (chunksize << 4) + ((chunksize_buf[j] | 32) - 'a' + 10);
++            }
++            chunksize_buf[0] = '\0';
++            chunksize_buf_index = 0;
++            i++;
++          } else {
++            /* not finished to get chunksize */
++            continue;
++          }
+ #ifdef DEBUG
+-					printf("chunksize = %u (%x)\n", chunksize, chunksize);
++          printf("chunksize = %u (%x)\n", chunksize, chunksize);
+ #endif
+-					if(chunksize == 0)
+-					{
++          if (chunksize == 0) {
+ #ifdef DEBUG
+-						printf("end of HTTP content - %d %d\n", i, n);
+-						/*printf("'%.*s'\n", n-i, buf+i);*/
++            printf("end of HTTP content - %d %d\n", i, n);
++            /*printf("'%.*s'\n", n-i, buf+i);*/
+ #endif
+-						goto end_of_stream;
+-					}
+-				}
+-				/* it is guaranteed that (n >= i) */
+-				bytestocopy = (chunksize < (unsigned int)(n - i))?chunksize:(unsigned int)(n - i);
+-				if((content_buf_used + bytestocopy) > content_buf_len)
+-				{
+-					char * tmp;
+-					if((content_length >= 0) && ((unsigned int)content_length >= (content_buf_used + bytestocopy))) {
+-						content_buf_len = content_length;
+-					} else {
+-						content_buf_len = content_buf_used + bytestocopy;
+-					}
+-					tmp = realloc(content_buf, content_buf_len);
+-					if(tmp == NULL) {
+-						/* memory allocation error */
+-						free(content_buf);
+-						free(header_buf);
+-						*size = -1;
+-						return NULL;
+-					}
+-					content_buf = tmp;
+-				}
+-				memcpy(content_buf + content_buf_used, buf + i, bytestocopy);
+-				content_buf_used += bytestocopy;
+-				i += bytestocopy;
+-				chunksize -= bytestocopy;
+-			}
+-		}
+-		else
+-		{
+-			/* not chunked */
+-			if(content_length > 0
+-			   && (content_buf_used + n) > (unsigned int)content_length) {
+-				/* skipping additional bytes */
+-				n = content_length - content_buf_used;
+-			}
+-			if(content_buf_used + n > content_buf_len)
+-			{
+-				char * tmp;
+-				if(content_length >= 0
+-				   && (unsigned int)content_length >= (content_buf_used + n)) {
+-					content_buf_len = content_length;
+-				} else {
+-					content_buf_len = content_buf_used + n;
+-				}
+-				tmp = realloc(content_buf, content_buf_len);
+-				if(tmp == NULL) {
+-					/* memory allocation error */
+-					free(content_buf);
+-					free(header_buf);
+-					*size = -1;
+-					return NULL;
+-				}
+-				content_buf = tmp;
+-			}
+-			memcpy(content_buf + content_buf_used, buf, n);
+-			content_buf_used += n;
+-		}
+-		/* use the Content-Length header value if available */
+-		if(content_length > 0 && content_buf_used >= (unsigned int)content_length)
+-		{
++            goto end_of_stream;
++          }
++        }
++        /* it is guaranteed that (n >= i) */
++        bytestocopy = (chunksize < (unsigned int)(n - i))
++                          ? chunksize
++                          : (unsigned int)(n - i);
++        if ((content_buf_used + bytestocopy) > content_buf_len) {
++          char *tmp;
++          if ((content_length >= 0) && ((unsigned int)content_length >=
++                                        (content_buf_used + bytestocopy))) {
++            content_buf_len = content_length;
++          } else {
++            content_buf_len = content_buf_used + bytestocopy;
++          }
++          tmp = realloc(content_buf, content_buf_len);
++          if (tmp == NULL) {
++            /* memory allocation error */
++            free(content_buf);
++            free(header_buf);
++            *size = -1;
++            return NULL;
++          }
++          content_buf = tmp;
++        }
++        memcpy(content_buf + content_buf_used, buf + i, bytestocopy);
++        content_buf_used += bytestocopy;
++        i += bytestocopy;
++        chunksize -= bytestocopy;
++      }
++    } else {
++      /* not chunked */
++      if (content_length > 0 &&
++          (content_buf_used + n) > (unsigned int)content_length) {
++        /* skipping additional bytes */
++        n = content_length - content_buf_used;
++      }
++      if (content_buf_used + n > content_buf_len) {
++        char *tmp;
++        if (content_length >= 0 &&
++            (unsigned int)content_length >= (content_buf_used + n)) {
++          content_buf_len = content_length;
++        } else {
++          content_buf_len = content_buf_used + n;
++        }
++        tmp = realloc(content_buf, content_buf_len);
++        if (tmp == NULL) {
++          /* memory allocation error */
++          free(content_buf);
++          free(header_buf);
++          *size = -1;
++          return NULL;
++        }
++        content_buf = tmp;
++      }
++      memcpy(content_buf + content_buf_used, buf, n);
++      content_buf_used += n;
++    }
++    /* use the Content-Length header value if available */
++    if (content_length > 0 &&
++        content_buf_used >= (unsigned int)content_length) {
+ #ifdef DEBUG
+-			printf("End of HTTP content\n");
++      printf("End of HTTP content\n");
+ #endif
+-			break;
+-		}
+-	}
++      break;
++    }
++  }
+ end_of_stream:
+-	free(header_buf);
+-	*size = content_buf_used;
+-	if(content_buf_used == 0)
+-	{
+-		free(content_buf);
+-		content_buf = NULL;
+-	}
+-	return content_buf;
++  free(header_buf);
++  *size = content_buf_used;
++  if (content_buf_used == 0) {
++    free(content_buf);
++    content_buf = NULL;
++  }
++  return content_buf;
+ }
+ 
+ /* miniwget3() :
+  * do all the work.
+  * Return NULL if something failed. */
+-static void *
+-miniwget3(const char * host,
+-          unsigned short port, const char * path,
+-          int * size, char * addr_str, int addr_str_len,
+-          const char * httpversion, unsigned int scope_id,
+-          int * status_code)
+-{
+-	char buf[2048];
+-	SOCKET s;
+-	int n;
+-	int len;
+-	int sent;
+-	void * content;
++static void *miniwget3(const char *host, unsigned short port, const char *path,
++                       int *size, char *addr_str, int addr_str_len,
++                       const char *httpversion, unsigned int scope_id,
++                       int *status_code) {
++  char buf[2048];
++  SOCKET s;
++  int n;
++  int len;
++  int sent;
++  void *content;
+ 
+-	*size = 0;
+-	s = connecthostport(host, port, scope_id);
+-	if(ISINVALID(s))
+-		return NULL;
++  *size = 0;
++  s = connecthostport(host, port, scope_id);
++  if (ISINVALID(s))
++    return NULL;
+ 
+-	/* get address for caller ! */
+-	if(addr_str)
+-	{
+-		struct sockaddr_storage saddr;
+-		socklen_t saddrlen;
++  /* get address for caller ! */
++  if (addr_str) {
++    struct sockaddr_storage saddr;
++    socklen_t saddrlen;
+ 
+-		saddrlen = sizeof(saddr);
+-		if(getsockname(s, (struct sockaddr *)&saddr, &saddrlen) < 0)
+-		{
+-			perror("getsockname");
+-		}
+-		else
+-		{
++    saddrlen = sizeof(saddr);
++    if (getsockname(s, (struct sockaddr *)&saddr, &saddrlen) < 0) {
++      perror("getsockname");
++    } else {
+ #if defined(__amigaos__) && !defined(__amigaos4__)
+-	/* using INT WINAPI WSAAddressToStringA(LPSOCKADDR, DWORD, LPWSAPROTOCOL_INFOA, LPSTR, LPDWORD);
+-     * But his function make a string with the port :  nn.nn.nn.nn:port */
+-/*		if(WSAAddressToStringA((SOCKADDR *)&saddr, sizeof(saddr),
+-                            NULL, addr_str, (DWORD *)&addr_str_len))
+-		{
+-		    printf("WSAAddressToStringA() failed : %d\n", WSAGetLastError());
+-		}*/
+-			/* the following code is only compatible with ip v4 addresses */
+-			strncpy(addr_str, inet_ntoa(((struct sockaddr_in *)&saddr)->sin_addr), addr_str_len);
++      /* using INT WINAPI WSAAddressToStringA(LPSOCKADDR, DWORD,
++       * LPWSAPROTOCOL_INFOA, LPSTR, LPDWORD); But his function make a string
++       * with the port :  nn.nn.nn.nn:port */
++      /*		if(WSAAddressToStringA((SOCKADDR *)&saddr,
++         sizeof(saddr), NULL, addr_str, (DWORD *)&addr_str_len))
++                      {
++                          printf("WSAAddressToStringA() failed : %d\n",
++         WSAGetLastError());
++                      }*/
++      /* the following code is only compatible with ip v4 addresses */
++      strncpy(addr_str, inet_ntoa(((struct sockaddr_in *)&saddr)->sin_addr),
++              addr_str_len);
+ #else
+ #if 0
+ 			if(saddr.sa_family == AF_INET6) {
+@@ -420,95 +399,79 @@ miniwget3(const char * host,
+ 				          addr_str, addr_str_len);
+ 			}
+ #endif
+-			/* getnameinfo return ip v6 address with the scope identifier
+-			 * such as : 2a01:e35:8b2b:7330::%4281128194 */
+-			n = getnameinfo((const struct sockaddr *)&saddr, saddrlen,
+-			                addr_str, addr_str_len,
+-			                NULL, 0,
+-			                NI_NUMERICHOST | NI_NUMERICSERV);
+-			if(n != 0) {
++      /* getnameinfo return ip v6 address with the scope identifier
++       * such as : 2a01:e35:8b2b:7330::%4281128194 */
++      n = getnameinfo((const struct sockaddr *)&saddr, saddrlen, addr_str,
++                      addr_str_len, NULL, 0, NI_NUMERICHOST | NI_NUMERICSERV);
++      if (n != 0) {
+ #ifdef _WIN32
+-				fprintf(stderr, "getnameinfo() failed : %d\n", n);
++        fprintf(stderr, "getnameinfo() failed : %d\n", n);
+ #else
+-				fprintf(stderr, "getnameinfo() failed : %s\n", gai_strerror(n));
++        fprintf(stderr, "getnameinfo() failed : %s\n", gai_strerror(n));
+ #endif
+-			}
++      }
+ #endif
+-		}
++    }
+ #ifdef DEBUG
+-		printf("address miniwget : %s\n", addr_str);
++    printf("address miniwget : %s\n", addr_str);
+ #endif
+-	}
++  }
+ 
+-	len = snprintf(buf, sizeof(buf),
++  len = snprintf(buf, sizeof(buf),
+                  "GET %s HTTP/%s\r\n"
+-			     "Host: %s:%d\r\n"
+-				 "Connection: Close\r\n"
+-				 "User-Agent: " OS_STRING " " UPNP_VERSION_STRING " MiniUPnPc/" MINIUPNPC_VERSION_STRING "\r\n"
++                 "Host: %s:%d\r\n"
++                 "Connection: Close\r\n"
++                 "User-Agent: " OS_STRING " " UPNP_VERSION_STRING
++                 " MiniUPnPc/" MINIUPNPC_VERSION_STRING "\r\n"
+ 
+-				 "\r\n",
+-			   path, httpversion, host, port);
+-	if ((unsigned int)len >= sizeof(buf))
+-	{
+-		closesocket(s);
+-		return NULL;
+-	}
+-	sent = 0;
+-	/* sending the HTTP request */
+-	while(sent < len)
+-	{
+-		n = send(s, buf+sent, len-sent, 0);
+-		if(n < 0)
+-		{
+-			perror("send");
+-			closesocket(s);
+-			return NULL;
+-		}
+-		else
+-		{
+-			sent += n;
+-		}
+-	}
+-	content = getHTTPResponse(s, size, status_code);
+-	closesocket(s);
+-	return content;
++                 "\r\n",
++                 path, httpversion, host, port);
++  if ((unsigned int)len >= sizeof(buf)) {
++    closesocket(s);
++    return NULL;
++  }
++  sent = 0;
++  /* sending the HTTP request */
++  while (sent < len) {
++    n = send(s, buf + sent, len - sent, 0);
++    if (n < 0) {
++      perror("send");
++      closesocket(s);
++      return NULL;
++    } else {
++      sent += n;
++    }
++  }
++  content = getHTTPResponse(s, size, status_code);
++  closesocket(s);
++  return content;
+ }
+ 
+ /* miniwget2() :
+  * Call miniwget3(); retry with HTTP/1.1 if 1.0 fails. */
+-static void *
+-miniwget2(const char * host,
+-          unsigned short port, const char * path,
+-          int * size, char * addr_str, int addr_str_len,
+-          unsigned int scope_id, int * status_code)
+-{
+-	char * respbuffer;
++static void *miniwget2(const char *host, unsigned short port, const char *path,
++                       int *size, char *addr_str, int addr_str_len,
++                       unsigned int scope_id, int *status_code) {
++  char *respbuffer;
+ 
+ #if 1
+-	respbuffer = miniwget3(host, port, path, size,
+-	                       addr_str, addr_str_len, "1.1",
+-	                       scope_id, status_code);
++  respbuffer = miniwget3(host, port, path, size, addr_str, addr_str_len, "1.1",
++                         scope_id, status_code);
+ #else
+-	respbuffer = miniwget3(host, port, path, size,
+-	                       addr_str, addr_str_len, "1.0",
+-	                       scope_id, status_code);
+-	if (*size == 0)
+-	{
++  respbuffer = miniwget3(host, port, path, size, addr_str, addr_str_len, "1.0",
++                         scope_id, status_code);
++  if (*size == 0) {
+ #ifdef DEBUG
+-		printf("Retrying with HTTP/1.1\n");
++    printf("Retrying with HTTP/1.1\n");
+ #endif
+-		free(respbuffer);
+-		respbuffer = miniwget3(host, port, path, size,
+-		                       addr_str, addr_str_len, "1.1",
+-		                       scope_id, status_code);
+-	}
++    free(respbuffer);
++    respbuffer = miniwget3(host, port, path, size, addr_str, addr_str_len,
++                           "1.1", scope_id, status_code);
++  }
+ #endif
+-	return respbuffer;
++  return respbuffer;
+ }
+ 
+-
+-
+-
+ /* parseURL()
+  * arguments :
+  *   url :		source string not modified
+@@ -519,146 +482,132 @@ miniwget2(const char * host,
+  * Return values :
+  *    0 - Failure
+  *    1 - Success         */
+-int
+-parseURL(const char * url,
+-         char * hostname, unsigned short * port,
+-         char * * path, unsigned int * scope_id)
+-{
+-	char * p1, *p2, *p3;
+-	if(!url)
+-		return 0;
+-	p1 = strstr(url, "://");
+-	if(!p1)
+-		return 0;
+-	p1 += 3;
+-	if(  (url[0]!='h') || (url[1]!='t')
+-	   ||(url[2]!='t') || (url[3]!='p'))
+-		return 0;
+-	memset(hostname, 0, MAXHOSTNAMELEN + 1);
+-	if(*p1 == '[')
+-	{
+-		/* IP v6 : http://[2a00:1450:8002::6a]/path/abc */
+-		char * scope;
+-		scope = strchr(p1, '%');
+-		p2 = strchr(p1, ']');
+-		if(p2 && scope && scope < p2 && scope_id) {
+-			/* parse scope */
++int parseURL(const char *url, char *hostname, unsigned short *port, char **path,
++             unsigned int *scope_id) {
++  char *p1, *p2, *p3;
++  if (!url)
++    return 0;
++  p1 = strstr(url, "://");
++  if (!p1)
++    return 0;
++  p1 += 3;
++  if ((url[0] != 'h') || (url[1] != 't') || (url[2] != 't') || (url[3] != 'p'))
++    return 0;
++  memset(hostname, 0, MAXHOSTNAMELEN + 1);
++  if (*p1 == '[') {
++    /* IP v6 : http://[2a00:1450:8002::6a]/path/abc */
++    char *scope;
++    scope = strchr(p1, '%');
++    p2 = strchr(p1, ']');
++    if (p2 && scope && scope < p2 && scope_id) {
++      /* parse scope */
+ #ifdef IF_NAMESIZE
+-			char tmp[IF_NAMESIZE];
+-			int l;
+-			scope++;
+-			/* "%25" is just '%' in URL encoding */
+-			if(scope[0] == '2' && scope[1] == '5')
+-				scope += 2;	/* skip "25" */
+-			l = p2 - scope;
+-			if(l >= IF_NAMESIZE)
+-				l = IF_NAMESIZE - 1;
+-			memcpy(tmp, scope, l);
+-			tmp[l] = '\0';
+-			*scope_id = if_nametoindex(tmp);
+-			if(*scope_id == 0) {
+-				*scope_id = (unsigned int)strtoul(tmp, NULL, 10);
+-			}
++      char tmp[IF_NAMESIZE];
++      int l;
++      scope++;
++      /* "%25" is just '%' in URL encoding */
++      if (scope[0] == '2' && scope[1] == '5')
++        scope += 2; /* skip "25" */
++      l = p2 - scope;
++      if (l >= IF_NAMESIZE)
++        l = IF_NAMESIZE - 1;
++      memcpy(tmp, scope, l);
++      tmp[l] = '\0';
++#if defined(IF_NAMESIZE) && !defined(__SWITCH__)
++      *scope_id = if_nametoindex(tmp);
+ #else
+-			/* under windows, scope is numerical */
+-			char tmp[8];
+-			size_t l;
+-			scope++;
+-			/* "%25" is just '%' in URL encoding */
+-			if(scope[0] == '2' && scope[1] == '5')
+-				scope += 2;	/* skip "25" */
+-			l = p2 - scope;
+-			if(l >= sizeof(tmp))
+-				l = sizeof(tmp) - 1;
+-			memcpy(tmp, scope, l);
+-			tmp[l] = '\0';
+-			*scope_id = (unsigned int)strtoul(tmp, NULL, 10);
++      *scope_id = 0;
+ #endif
+-		}
+-		p3 = strchr(p1, '/');
+-		if(p2 && p3)
+-		{
+-			p2++;
+-			strncpy(hostname, p1, MIN(MAXHOSTNAMELEN, (int)(p2-p1)));
+-			if(*p2 == ':')
+-			{
+-				*port = 0;
+-				p2++;
+-				while( (*p2 >= '0') && (*p2 <= '9'))
+-				{
+-					*port *= 10;
+-					*port += (unsigned short)(*p2 - '0');
+-					p2++;
+-				}
+-			}
+-			else
+-			{
+-				*port = 80;
+-			}
+-			*path = p3;
+-			return 1;
+-		}
+-	}
+-	p2 = strchr(p1, ':');
+-	p3 = strchr(p1, '/');
+-	if(!p3)
+-		return 0;
+-	if(!p2 || (p2>p3))
+-	{
+-		strncpy(hostname, p1, MIN(MAXHOSTNAMELEN, (int)(p3-p1)));
+-		*port = 80;
+-	}
+-	else
+-	{
+-		strncpy(hostname, p1, MIN(MAXHOSTNAMELEN, (int)(p2-p1)));
+-		*port = 0;
+-		p2++;
+-		while( (*p2 >= '0') && (*p2 <= '9'))
+-		{
+-			*port *= 10;
+-			*port += (unsigned short)(*p2 - '0');
+-			p2++;
+-		}
+-	}
+-	*path = p3;
+-	return 1;
++      if (*scope_id == 0) {
++        *scope_id = (unsigned int)strtoul(tmp, NULL, 10);
++      }
++#else
++      /* under windows, scope is numerical */
++      char tmp[8];
++      size_t l;
++      scope++;
++      /* "%25" is just '%' in URL encoding */
++      if (scope[0] == '2' && scope[1] == '5')
++        scope += 2; /* skip "25" */
++      l = p2 - scope;
++      if (l >= sizeof(tmp))
++        l = sizeof(tmp) - 1;
++      memcpy(tmp, scope, l);
++      tmp[l] = '\0';
++      *scope_id = (unsigned int)strtoul(tmp, NULL, 10);
++#endif
++    }
++    p3 = strchr(p1, '/');
++    if (p2 && p3) {
++      p2++;
++      strncpy(hostname, p1, MIN(MAXHOSTNAMELEN, (int)(p2 - p1)));
++      if (*p2 == ':') {
++        *port = 0;
++        p2++;
++        while ((*p2 >= '0') && (*p2 <= '9')) {
++          *port *= 10;
++          *port += (unsigned short)(*p2 - '0');
++          p2++;
++        }
++      } else {
++        *port = 80;
++      }
++      *path = p3;
++      return 1;
++    }
++  }
++  p2 = strchr(p1, ':');
++  p3 = strchr(p1, '/');
++  if (!p3)
++    return 0;
++  if (!p2 || (p2 > p3)) {
++    strncpy(hostname, p1, MIN(MAXHOSTNAMELEN, (int)(p3 - p1)));
++    *port = 80;
++  } else {
++    strncpy(hostname, p1, MIN(MAXHOSTNAMELEN, (int)(p2 - p1)));
++    *port = 0;
++    p2++;
++    while ((*p2 >= '0') && (*p2 <= '9')) {
++      *port *= 10;
++      *port += (unsigned short)(*p2 - '0');
++      p2++;
++    }
++  }
++  *path = p3;
++  return 1;
+ }
+ 
+-void *
+-miniwget(const char * url, int * size,
+-         unsigned int scope_id, int * status_code)
+-{
+-	unsigned short port;
+-	char * path;
+-	/* protocol://host:port/chemin */
+-	char hostname[MAXHOSTNAMELEN+1];
+-	*size = 0;
+-	if(!parseURL(url, hostname, &port, &path, &scope_id))
+-		return NULL;
++void *miniwget(const char *url, int *size, unsigned int scope_id,
++               int *status_code) {
++  unsigned short port;
++  char *path;
++  /* protocol://host:port/chemin */
++  char hostname[MAXHOSTNAMELEN + 1];
++  *size = 0;
++  if (!parseURL(url, hostname, &port, &path, &scope_id))
++    return NULL;
+ #ifdef DEBUG
+-	printf("parsed url : hostname='%s' port=%hu path='%s' scope_id=%u\n",
+-	       hostname, port, path, scope_id);
++  printf("parsed url : hostname='%s' port=%hu path='%s' scope_id=%u\n",
++         hostname, port, path, scope_id);
+ #endif
+-	return miniwget2(hostname, port, path, size, 0, 0, scope_id, status_code);
++  return miniwget2(hostname, port, path, size, 0, 0, scope_id, status_code);
+ }
+ 
+-void *
+-miniwget_getaddr(const char * url, int * size,
+-                 char * addr, int addrlen, unsigned int scope_id,
+-                 int * status_code)
+-{
+-	unsigned short port;
+-	char * path;
+-	/* protocol://host:port/path */
+-	char hostname[MAXHOSTNAMELEN+1];
+-	*size = 0;
+-	if(addr)
+-		addr[0] = '\0';
+-	if(!parseURL(url, hostname, &port, &path, &scope_id))
+-		return NULL;
++void *miniwget_getaddr(const char *url, int *size, char *addr, int addrlen,
++                       unsigned int scope_id, int *status_code) {
++  unsigned short port;
++  char *path;
++  /* protocol://host:port/path */
++  char hostname[MAXHOSTNAMELEN + 1];
++  *size = 0;
++  if (addr)
++    addr[0] = '\0';
++  if (!parseURL(url, hostname, &port, &path, &scope_id))
++    return NULL;
+ #ifdef DEBUG
+-	printf("parsed url : hostname='%s' port=%hu path='%s' scope_id=%u\n",
+-	       hostname, port, path, scope_id);
++  printf("parsed url : hostname='%s' port=%hu path='%s' scope_id=%u\n",
++         hostname, port, path, scope_id);
+ #endif
+-	return miniwget2(hostname, port, path, size, addr, addrlen, scope_id, status_code);
++  return miniwget2(hostname, port, path, size, addr, addrlen, scope_id,
++                   status_code);
+ }
