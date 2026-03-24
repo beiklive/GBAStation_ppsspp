@@ -15,10 +15,9 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-
-// This header contains type definitions that are shared between the Dolphin core and
-// other parts of the code. Any definitions that are only used by the core should be
-// placed in "Common.h" instead.
+// This header contains type definitions that are shared between the Dolphin
+// core and other parts of the code. Any definitions that are only used by the
+// core should be placed in "Common.h" instead.
 
 #pragma once
 
@@ -46,10 +45,16 @@ typedef signed __int64 s64;
 #define Framebuffer _Framebuffer
 #define Waitable _Waitable
 #define ThreadContext _ThreadContext
+#define BreakReason _BreakReason
 #include <switch.h>
 // Cleanup
-#undef KeyInputFlags::UP
-#undef KeyInputFlags::DOWN
+#undef UP
+#undef DOWN
+#undef BIT
+#undef BreakReason
+// Conflicting types with libnx
+#undef u64
+#undef s64
 #undef Event
 #undef Framebuffer
 #undef Waitable
@@ -64,10 +69,10 @@ typedef signed __int64 s64;
 #define s64 _s64
 #endif // _s64
 
-typedef unsigned char   u_char;
-typedef unsigned short  u_short;
-typedef unsigned int    u_int;
-typedef unsigned long   u_long;
+typedef unsigned char u_char;
+typedef unsigned short u_short;
+typedef unsigned int u_int;
+typedef unsigned long u_long;
 #endif // __SWITCH__
 
 typedef unsigned char u8;

@@ -116,6 +116,8 @@ private:
 
 extern PortManager g_PortManager;
 
+#ifdef WITH_UPNP
+
 void __UPnPInit(const int timeout_ms);
 void __UPnPShutdown();
 
@@ -124,3 +126,12 @@ void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport 
 
 // Remove a port mapping (external port)
 void UPnP_Remove(const char* protocol, unsigned short port);
+
+#else
+
+inline void __UPnPInit(const int timeout_ms) {}
+inline void __UPnPShutdown() {}
+inline void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport = 0) {}
+inline void UPnP_Remove(const char* protocol, unsigned short port) {}
+
+#endif

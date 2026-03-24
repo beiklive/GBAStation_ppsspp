@@ -1,0 +1,190 @@
+[INFO][HOME] ticoSetup argument found. Starting in Tico Mode.
+[INFO][HOME] Switch pre-init complete (socket, romfs, nwindow)
+[INFO][HOME] CPU clock set to 1326 MHz via clkrst
+[INFO][HOME] Main thread optimized (Core 0, Priority 0x20, CPU 1428MHz)
+[INFO][HOME] ppsspp starting...
+[INFO][HOME] Calling InitWindow...
+[INFO][HOME] Starting initialization...
+[INFO][HOME] SDL initialized
+[INFO][HOME] Switch: skipping SDL window (using native window)
+[INFO][DISPLAY] Mode → Handheld (1280×720 crop)
+[INFO][HOME] Switch Resolution: 1280x720 (logical)
+[INFO][EGL] EGL display obtained
+[INFO][EGL] EGL 1.4 initialized
+[INFO][EGL] EGL config chosen (numConfigs=1)
+[INFO][EGL] EGL surface created
+[INFO][EGL] EGL context created
+[INFO][EGL] EGL context made current
+[INFO][EGL] VSync enabled (eglSwapInterval=1)
+[INFO][HOME] OpenGL 4.3 (Core Profile) Mesa 23.3.6 (git-f823a866b2) initialized
+[INFO][HOME] InitWindow succeeded
+[INFO][HOME] Calling InitImGui...
+[INFO][HOME] InitImGui starting...
+[INFO][HOME] ImGui context created
+[INFO][HOME] ImGui backends initialized
+[INFO][HOME] ImGui initialized
+[INFO][HOME] InitImGui succeeded
+[INFO][HOME] Creating core...
+[INFO][HOME] Creating overlay...
+[INFO][HOME] Core and overlay created
+[INFO][HOME] ROM path provided via argv: sdmc:/tico/roms/psp/LittleBigPlanet (USA) (En,Fr,De,Es,It,Pt).iso
+[INFO][HOME] Loading ROM: sdmc:/tico/roms/psp/LittleBigPlanet (USA) (En,Fr,De,Es,It,Pt).iso
+[DEBUG][CORE] LoadGame: Enter: sdmc:/tico/roms/psp/LittleBigPlanet (USA) (En,Fr,De,Es,It,Pt).iso
+[DEBUG][CORE] LoadGame: Not initialized, calling Init()
+[INFO][CONFIG] [PpssppConfig] Loaded config from sdmc:/tico/config/cores/ppsspp.jsonc
+[DEBUG][CORE] Loaded 41 options from PpssppConfig
+[DEBUG][CORE] RA: Found accounts.jsonc at sdmc:/tico/config/accounts.jsonc
+[DEBUG][CORE] RA: Config loaded (Enabled: 1, User: ticoverse)
+[DEBUG][CORE_ERR] [IO] Missing filesystem for 'lang/.ini'
+[DEBUG][CORE_INFO] [G3D] Longest display side: -1 pixels. Choosing scale 1
+[DEBUG][CORE_INFO] [SYSTEM] ThreadManager::Init(compute threads: 4, all: 8)
+[DEBUG][CORE_DBG] Output audio buffer capacity set to 2048
+[DEBUG][CORE] RA: Existent token found. Auto login as ticoverse...
+[DEBUG][CORE] Initialized: PPSSPP 846ab63d6a
+[DEBUG][CORE] LoadGame: Opening file...
+[DEBUG][CORE] LoadGame: Calling retro_load_game...
+[DEBUG][CORE] HW render requested: context_type=3
+[DEBUG][CORE_INFO] [SYSTEM] Using OpenGL Core backend
+[DEBUG][CORE_INFO] [LOADER] Starting loader thread...
+[DEBUG][CORE] LoadGame: retro_load_game succeeded
+[DEBUG][CORE_WARN] [DEBUG][CORE] [BOOT] PPSSPP 846ab63d6aLoadGame: Getting AV info...
+
+[DEBUG][CORE] LoadGame: Game loaded: 480x270 @ 59.94 fps
+[DEBUG][CORE_INFO] [DEBUG][CORE] [LOADER] UCUS98744 : LittleBigPlanet™ LoadGame: Initializing HW render context...
+
+[DEBUG][CORE] Created HW render texture: 2 (480x270) FBO: 1
+[DEBUG][CORE] LoadGame: Calling context_reset...
+[DEBUG][CORE_INFO] [MEMMAP] Memory system initialized. Base at 0xfa58e4000 (RAM at @ 0x64e967c540, uncached @ 0x64e967c520)
+[DEBUG][CORE_INFO] [G3D] Context reset
+[DEBUG][CORE_WARN] [G3D] Unknown GL vendor: 'Mesa'
+[DEBUG][CORE_INFO] [G3D] GPU Vendor : Mesa ; renderer: NV12B version str: 4.3 (Core Profile) Mesa 23.3.6 (git-f823a866b2) ; GLSL version str: 4.30
+[DEBUG][CORE_INFO] [LOADER] Loading disc0:/PSP_GAME/SYSDIR/EBOOT.BIN...
+[DEBUG][CORE] LoadGame: context_reset done
+[DEBUG][CORE_INFO] [DEBUG][CORE] [SCEKERNEL] Initializing kernel...LoadGame: Setting controller port device...
+
+[DEBUG][CORE] LoadGame: Complete!
+[DEBUG][CORE_INFO] [SCEKERNEL] Kernel and user memory pools initialized
+[DEBUG][CORE_INFO] [SCEIO] Enabling /PSP compatibility mode
+[DEBUG][CORE_INFO] [IO] CreateEmptyFile: sdmc:/tico/saves/psp/wJpCzSBNnZfxSgoS
+[DEBUG][CORE_INFO] [IO] Delete: file sdmc:/tico/saves/psp/wJpCzSBNnZfxSgoS was deleted.
+[DEBUG][CORE_INFO] [IO] Is file system case sensitive? no (base: 'sdmc:/tico/saves/psp') (checkOK: 1)
+[DEBUG][CORE_INFO] [SCEIO] Entering __IoManagerThread
+[DEBUG][CORE_ERR] [SCENET] Error parsing mac address disableddisabled:disableddisabled:disableddisabled:disableddisabled:disableddisabled:disableddisabled
+[DEBUG][CORE_INFO] [SCENET] LocalHost IP will be 127.0.0.1 [00:00:00:00:00:00]
+[DEBUG][CORE_ERR] [SCENET] Error parsing mac address disableddisabled:disableddisabled:disableddisabled:disableddisabled:disableddisabled:disableddisabled
+[INFO][DISPLAY] Mode → Handheld (1280×720 crop)
+[DEBUG][CORE] RA login failed -> No response
+[DEBUG][CORE_INFO] [SCEGE] PPGe drawing library initialized. DL: 08000400 Data: 08010400 Atlas: 08020d00 (2097152) Args: 08020400
+[DEBUG][CORE_INFO] [SCEKERNEL] Kernel initialized.
+[DEBUG][CORE_INFO] [LOADER] Decrypting tag D9160BF0
+[DEBUG][CORE] First valid frame detected after 9 boot frames
+[DEBUG][CORE_INFO] [LOADER] Decrypting tag D9160BF0
+[DEBUG][CORE_INFO] [LOADER] Decrypting tag D9160BF0
+[DEBUG][CORE_INFO] [LOADER] Module LBPPSP: 08bea030 08ba6fa8 08ba6fc0
+[DEBUG][CORE_INFO] [LOADER] Function (sceNetApDialogDummy,3811281e) unresolved in 'LBPPSP', storing for later resolving
+[DEBUG][CORE_INFO] [LOADER] Function (sceNetApDialogDummy,bb73ff67) unresolved in 'LBPPSP', storing for later resolving
+[DEBUG][CORE_INFO] [LOADER] Function (sceNetApDialogDummy,ca9be5bf) unresolved in 'LBPPSP', storing for later resolving
+[DEBUG][CORE_INFO] [LOADER] Function (sceNetApDialogDummy,f213be65) unresolved in 'LBPPSP', storing for later resolving
+[DEBUG][CORE_WARN] [LOADER] Unknown syscall from known HLE module 'sceNpService': 0x168b8de5 (import for 'LBPPSP')
+[DEBUG][CORE_WARN] [LOADER] Unknown syscall from known HLE module 'sceNpService': 0x1da3e950 (import for 'LBPPSP')
+[DEBUG][CORE_WARN] [LOADER] Unknown syscall from known HLE module 'sceNpService': 0x78802d5f (import for 'LBPPSP')
+[DEBUG][CORE_WARN] [LOADER] Unknown syscall from known HLE module 'sceNpService': 0x90e4db6a (import for 'LBPPSP')
+[DEBUG][CORE_INFO] [HLE] Replaced memcpy at 08b7ddd8 with hash 9e2941c4a5c5e847
+[DEBUG][CORE_INFO] [HLE] Replaced memcpy at 08b9ad98 with hash 9e6ce11f9d49f954
+[DEBUG][CORE_INFO] [HLE] Replaced memmove at 08b9aebc with hash d019b067b58cf6c3
+[DEBUG][CORE_INFO] [HLE] Replaced memset at 08b9b178 with hash fe5dd338ab862291
+[DEBUG][CORE_INFO] [LOADER] Exporting ent 0 named LBPPSP, 2 funcs, 4 vars, resident 08ba72dc
+[DEBUG][CORE_INFO] [LOADER] Module entry: 08804114 (LBPPSP 0101)
+[DEBUG][CORE_INFO] [SYSTEM] Starting modules...
+[DEBUG][CORE_ERR] [SYSTEM] Exception handler not implemented on this platform, can't install
+[DEBUG][CORE_INFO] [LOADER] Starting graphics...
+[DEBUG][CORE_INFO] [G3D] FramebufferManagerCommon::NotifyDisplayResized: 480x270
+[DEBUG][CORE_INFO] [G3D] Updating inflight frames to 3
+[DEBUG][CORE_INFO] [SCEKERNEL] 276=sceKernelCreateThread(user_main, 08804228, 00000020, 307200, 80004000, 00000000)
+[DEBUG][CORE_INFO] [CPU] Loading 'vfpu/vfpu_sin_lut8192.dat'...
+[DEBUG][CORE_INFO] [CPU] Successfully loaded 'vfpu/vfpu_sin_lut8192.dat'
+[DEBUG][CORE_INFO] [CPU] Loading 'vfpu/vfpu_sin_lut_delta.dat'...
+[DEBUG][CORE_INFO] [CPU] Successfully loaded 'vfpu/vfpu_sin_lut_delta.dat'
+[DEBUG][CORE_INFO] [CPU] Loading 'vfpu/vfpu_sin_lut_interval_delta.dat'...
+[DEBUG][CORE_INFO] [CPU] Successfully loaded 'vfpu/vfpu_sin_lut_interval_delta.dat'
+[DEBUG][CORE_INFO] [CPU] Loading 'vfpu/vfpu_sin_lut_exceptions.dat'...
+[DEBUG][CORE_INFO] [CPU] Successfully loaded 'vfpu/vfpu_sin_lut_exceptions.dat'
+[DEBUG][CORE_INFO] [SCEKERNEL] 293=sceKernelCreateThread(ExitGameThread, 089f5c04, 0000000f, 4096, 00204000, 00000000)
+[DEBUG][CORE_INFO] [SCEUTIL] 00000000=sceUtilityGetSystemParamInt(00000009, 09fff544): (INT_BUTTON_PREFERENCE): 00000001
+[DEBUG][CORE_DBG] Output audio buffer capacity set to 3264
+[DEBUG][CORE_INFO] [SCEKERNEL] 331=sceKernelCreateThread(08C12774 fios mediathread, 08acd4b8, 0000001c, 32768, 00000000, 00000000)
+[DEBUG][CORE_INFO] [SCEKERNEL] 334=sceKernelCreateThread(09111574 fios scheduler, 08acd4b8, 0000001d, 32768, 00000000, 00000000)
+[DEBUG][CORE_INFO] [SCEKERNEL] 357=sceKernelCreateThread(08C12CE4 fios mediathread, 08acd4b8, 0000001c, 32768, 00000000, 00000000)
+[DEBUG][CORE_INFO] [SCEKERNEL] 360=sceKernelCreateThread(091150C4 fios scheduler, 08acd4b8, 0000001d, 32768, 00000000, 00000000)
+[DEBUG][CORE_INFO] [SCEKERNEL] 369=sceKernelCreateThread(09108AE8 rm_data, 08acd4b8, 0000001e, 32768, 00000000, 00000000)
+[DEBUG][CORE_INFO] [SCEMODULE] ~SCE module: Lib-PSP apdialogdmy  (SDK 3.9.5.0)
+[DEBUG][CORE_INFO] [SCEMODULE] Loading module sceNetApDialogDummy_Library with version 0102, devkit 03090510, crc 34844d00
+[DEBUG][CORE_INFO] [LOADER] Decrypting tag 457B06F0
+[DEBUG][CORE_INFO] [LOADER] Decrypting tag 457B06F0
+[DEBUG][CORE_INFO] [LOADER] Decrypting tag 457B06F0
+[DEBUG][CORE_INFO] [SCEMODULE] gzip is enabled in 'sceNetApDialogDummy_Library', decompressing (1467 -> 2522 bytes, bufmax=2522).
+[DEBUG][CORE_INFO] [SCEMODULE] 370=sceKernelLoadModule(name=disc0:/PSP_GAME/USRDIR/modules/prx/pspnet_ap_dialog_dummy.prx,flag=00000000,(...))
+[DEBUG][CORE_INFO] [SCEMODULE] sceKernelStartModule(00000172, 00000000, 00000000, 09fff490, 00000000): Faked module
+[DEBUG][CORE_DBG] Output audio buffer capacity set to 5088
+[DEBUG][CORE_INFO] [SCEUTIL] 00000000=sceUtilityGetSystemParamInt(00000008, 09fff590): (INT_LANGUAGE): 00000001
+[DEBUG][CORE_INFO] [ATRAC] Atrac module loaded: atracLibVersion 0x105, atracLibcrc 0, bss: 9c33900 (67c bytes)
+[DEBUG][CORE_INFO] [SCESAS] 00000000=__sceSasInit(08c01800, 00000800, 00000020, 00000000, 0000ac44)
+[DEBUG][CORE_INFO] [SCEKERNEL] 377=sceKernelCreateThread(snd_tick_timer_thread, 08ad5928, 0000001b, 4096, 00200000, 00000000)
+[DEBUG][CORE_INFO] [PRINTF] stdout: 
+[DEBUG][CORE_INFO] [PRINTF] stdout: ========================================================
+[DEBUG][CORE_INFO] [PRINTF] stdout:  SCREAM PSP  (c)2006 Sony Computer Entertainment America
+[DEBUG][CORE_INFO] [PRINTF] stdout:  v2.7.0, built Oct  9 2009 at 16:40:26
+[DEBUG][CORE_INFO] [PRINTF] stdout: ========================================================
+[DEBUG][CORE_INFO] [PRINTF] stdout:     Sound Tick Thread Priority: 27
+[DEBUG][CORE_INFO] [PRINTF] stdout: ========================================================
+[DEBUG][CORE_INFO] [PRINTF] stdout: 
+[DEBUG][CORE_INFO] [PRINTF] 0=sceKernelPrintf(snd_stream v1.10.2): "snd_stream v1.10.2"
+[DEBUG][CORE_INFO] [PRINTF] 0=sceKernelPrintf(, built Oct  1 2009 at 10:37:20
+): ", built Oct  1 2009 at 10:37:20"
+[DEBUG][CORE_INFO] [PRINTF] 0=sceKernelPrintf(Compiled against Scream v2.7.0
+): "Compiled against Scream v2.7.0"
+[DEBUG][CORE_INFO] [SCEKERNEL] 381=sceKernelCreateThread(08C14120 ss_service_thread_0, 08acd4b8, 00000011, 32768, 00000000, 00000000)
+[DEBUG][CORE_INFO] [FRAMEBUF] Creating 565 FBO at 04000000/00000000 stride=512 480x272 (force=1)
+[DEBUG][CORE_INFO] [FRAMEBUF] Creating FBO for 04000000 (z: 00000000) : 480 x 272 x 565
+[DEBUG][CORE_WARN] [FRAMEBUF] Ignoring color matching depth buffer at 04000000
+[DEBUG][CORE_WARN] [FRAMEBUF] Framebuffer at 04000000/512 has switched associated depth buffer from 00000000 to 00000000, updating.
+[DEBUG][CORE_INFO] [HLE] scePowerSetClockFrequency(333,333,166)
+[DEBUG][CORE_INFO] [G3D] Creating 480 x 272 FBO using DEPTH24_STENCIL8 texture
+[DEBUG][CORE_INFO] [FRAMEBUF] Creating 8888 FBO at 04000000/04110000 stride=512 480x272 (force=1)
+[DEBUG][CORE_WARN] [FRAMEBUF] Reinterpret detected from 04000000_565 to 04000000_8888
+[DEBUG][CORE_INFO] [FRAMEBUF] Creating FBO for 04000000 (z: 04110000) : 480 x 272 x 8888
+[DEBUG][CORE_INFO] [G3D] Creating 480 x 272 FBO using DEPTH24_STENCIL8 texture
+[DEBUG][CORE_INFO] [FRAMEBUF] Decimating FBO for 04000000 (480x272 565), age 12
+[DEBUG][CORE_INFO] [FRAMEBUF] Creating 8888 FBO at 04088000/04110000 stride=512 480x272 (force=1)
+[DEBUG][CORE_INFO] [FRAMEBUF] Creating FBO for 04088000 (z: 04110000) : 480 x 272 x 8888
+[DEBUG][CORE_INFO] [G3D] Creating 480 x 272 FBO using DEPTH24_STENCIL8 texture
+[DEBUG][CORE_INFO] [SCEKERNEL] 402=sceKernelCreateThread(08C4F374 ThreadedRenderer, 08acd4b8, 0000001d, 32768, 00004000, 00000000)
+[DEBUG][CORE_INFO] [FRAMEBUF] Resizing 8888 FBO at 04088000/04110000 stride=512 from 480x272 to 480x274 (force=0, skipCopy=0)
+[DEBUG][CORE_INFO] [FRAMEBUF] Resizing FBO for 04088000 : 480x274x8888
+[DEBUG][CORE_INFO] [FRAMEBUF] Resizing 8888 FBO at 04000000/04110000 stride=512 from 480x272 to 480x274 (force=0, skipCopy=0)
+[DEBUG][CORE_INFO] [FRAMEBUF] Resizing FBO for 04000000 : 480x274x8888
+[DEBUG][CORE_INFO] [G3D] Creating 480 x 274 FBO using DEPTH24_STENCIL8 texture
+[DEBUG][CORE_INFO] [G3D] Creating 480 x 274 FBO using DEPTH24_STENCIL8 texture
+[DEBUG][CORE_INFO] [HLE] scePowerSetClockFrequency(333,333,166)
+[INFO][HOME] ShouldExit detected! g_running will be false.
+[INFO][HOME] Chainloading back to sdmc:/switch/tico.nro with args: sdmc:/switch/tico.nro --resume
+[INFO][HOME] Deleted imgui.ini
+[INFO][HOME] Starting cleanup...
+[DEBUG][CORE_INFO] [SYSTEM] Executing graphicsContext->ThreadFrame to clear buffers
+[DEBUG][CORE_INFO] [SYSTEM] Found out that the thread is done.
+[DEBUG][CORE_INFO] [SYSTEM] ThreadFrame returned false and emu thread is done, breaking.
+[DEBUG][CORE_INFO] [G3D] GLRenderManager::ThreadEnd begin
+[DEBUG][CORE_INFO] [G3D] GLRenderManager::ThreadEnd end
+[DEBUG][CORE_INFO] [SCEIO] Leaving __IoManagerThread
+[DEBUG][CORE_INFO] [SCEKERNEL] Shutting down kernel - 146 kernel objects alive
+[DEBUG][CORE_INFO] [G3D] Saving the shader cache to 'sdmc:/tico/saves/psp/SYSTEM/CACHE/UCUS98744.glshadercache'
+[DEBUG][CORE_INFO] [FRAMEBUF] Destroying FBO for 04000000 : 480 x 272 x 3
+[DEBUG][CORE_INFO] [FRAMEBUF] Destroying FBO for 04088000 : 480 x 272 x 3
+[DEBUG][CORE_INFO] [G3D] Texture cached cleared from 20 textures
+[INFO][HOME] Audio shutdown complete
+[INFO][HOME] CleanupWindow done
+[INFO][HOME] Calling romfsExit...
+[INFO][HOME] Calling socketExit...
+[INFO][HOME] Calling appletUnlockExit...
+[INFO][HOME] All Switch cleanup done
+[INFO][HOME] Clean exit
