@@ -139,7 +139,7 @@ fi
 
 cmake "${cmake_args[@]}"
 
-cmake --build "${BUILD_DIR}" -j"$(nproc)" --target tico-ppsspp_nro
+cmake --build "${BUILD_DIR}" -j"${CMAKE_BUILD_PARALLEL_LEVEL:-$(nproc)}" --target tico-ppsspp_nro
 
 if [ -f "${BUILD_DIR}/GBAStationPPSSPPStub.nro" ]; then
 	cp "${BUILD_DIR}/GBAStationPPSSPPStub.nro" "${SCRIPT_DIR}/GBAStationPPSSPPStub.nro"
