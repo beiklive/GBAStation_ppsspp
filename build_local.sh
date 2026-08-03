@@ -51,6 +51,6 @@ fi
 export MESA_NVK_DIR="$SWITCH_NVK_ROOT"
 export CMAKE_BUILD_PARALLEL_LEVEL=${JOBS:-$(nproc)}
 if [[ "$CLEAN" == 1 ]]; then
-    exec bash "$SCRIPT_DIR/build_ppsspp_tico_nro.sh" clean
+    exec bash "$SCRIPT_DIR/build_ppsspp_GBAStation_nro.sh" clean
 fi
-exec bash "$SCRIPT_DIR/build_ppsspp_tico_nro.sh"
+exec bash "$SCRIPT_DIR/build_ppsspp_GBAStation_nro.sh"

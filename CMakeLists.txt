@@ -1624,7 +1624,7 @@ else()
 			list(APPEND nativeExtraLibs ${SDL2Fwk})
 		endif()
 	elseif(USE_LIBNX AND SWITCH_VULKAN_ONLY)
-		# Switch Vulkan-only builds keep the Tico host SDL-free to avoid SDL's EGL-linked archive deps.
+		# Switch Vulkan-only builds keep the GBAStation host SDL-free to avoid SDL's EGL-linked archive deps.
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
 	elseif(USING_EGL)
 		list(APPEND nativeExtraLibs pthread SDL2::SDL2)
@@ -3028,80 +3028,80 @@ if(HEADLESS)
 endif()
 
 if(USE_LIBNX)
-	add_executable(tico-ppsspp
-		tico/TicoGraphicsHost.cpp
-		tico/TicoGraphicsHost.h
-		tico/PpssppEntry.cpp
-		tico/PpssppRuntime.cpp
-		tico/PpssppRuntime.h
-		tico/PpssppTicoConfig.cpp
-		tico/PpssppTicoConfig.h
-		tico/TicoAssetInstaller.cpp
-		tico/TicoAssetInstaller.h
-		tico/TicoAudioSfx.cpp
-		tico/TicoAudioSfx.h
-		tico/TicoChainload.cpp
-		tico/TicoChainload.h
-		tico/TicoConfig.h
-		tico/TicoCoreConfig.cpp
-		tico/TicoCoreConfig.h
-		tico/TicoLogger.h
-		tico/TicoMain.cpp
-		tico/TicoMain.h
-		tico/TicoOverlay.cpp
-		tico/TicoOverlay.h
-		tico/TicoRetroAchievements.cpp
-		tico/TicoRetroAchievements.h
-		tico/TicoSwitchCompat.cpp
-		tico/TicoTranslationManager.cpp
-		tico/TicoTranslationManager.h
-		tico/TicoUtils.h
+	add_executable(GBAStation-ppsspp
+		GBAStation/GBAStationGraphicsHost.cpp
+		GBAStation/GBAStationGraphicsHost.h
+		GBAStation/PpssppEntry.cpp
+		GBAStation/PpssppRuntime.cpp
+		GBAStation/PpssppRuntime.h
+		GBAStation/PpssppGBAStationConfig.cpp
+		GBAStation/PpssppGBAStationConfig.h
+		GBAStation/GBAStationAssetInstaller.cpp
+		GBAStation/GBAStationAssetInstaller.h
+		GBAStation/GBAStationAudioSfx.cpp
+		GBAStation/GBAStationAudioSfx.h
+		GBAStation/GBAStationChainload.cpp
+		GBAStation/GBAStationChainload.h
+		GBAStation/GBAStationConfig.h
+		GBAStation/GBAStationCoreConfig.cpp
+		GBAStation/GBAStationCoreConfig.h
+		GBAStation/GBAStationLogger.h
+		GBAStation/GBAStationMain.cpp
+		GBAStation/GBAStationMain.h
+		GBAStation/GBAStationOverlay.cpp
+		GBAStation/GBAStationOverlay.h
+		GBAStation/GBAStationRetroAchievements.cpp
+		GBAStation/GBAStationRetroAchievements.h
+		GBAStation/GBAStationSwitchCompat.cpp
+		GBAStation/GBAStationTranslationManager.cpp
+		GBAStation/GBAStationTranslationManager.h
+		GBAStation/GBAStationUtils.h
 	)
-	set_target_properties(tico-ppsspp PROPERTIES OUTPUT_NAME "GBAStationPPSSPPStub")
-	target_link_libraries(tico-ppsspp ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon} minimp3)
+	set_target_properties(GBAStation-ppsspp PROPERTIES OUTPUT_NAME "GBAStationPPSSPPStub")
+	target_link_libraries(GBAStation-ppsspp ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon} minimp3)
 	if(SWITCH_VULKAN_ONLY)
-		set(TICO_SWITCHVK_ROOT "${CMAKE_SOURCE_DIR}/../switchVK")
-		set(TICO_SWITCHVK_MESA_SOURCE "${TICO_SWITCHVK_ROOT}/.ci-build/nxvk-source")
-		set(TICO_SWITCHVK_CROSS_INCLUDE "${TICO_SWITCHVK_ROOT}/.ci-build/nxvk-cross-include")
-		target_sources(tico-ppsspp PRIVATE
-			"${TICO_SWITCHVK_ROOT}/winsys/drm_shim.c"
-			"${TICO_SWITCHVK_ROOT}/winsys/switch_libc_shim.c"
-			"${TICO_SWITCHVK_ROOT}/winsys/nvk_loaderless_shim.c"
-			"${TICO_SWITCHVK_ROOT}/compat/compat.c")
-		target_include_directories(tico-ppsspp PRIVATE
-			"${TICO_SWITCHVK_ROOT}/winsys"
-			"${TICO_SWITCHVK_ROOT}/compat"
-			"${TICO_SWITCHVK_CROSS_INCLUDE}"
-			"${TICO_SWITCHVK_MESA_SOURCE}/src/nouveau/drm")
-		target_compile_definitions(tico-ppsspp PRIVATE _GNU_SOURCE _DEFAULT_SOURCE)
-		target_compile_options(tico-ppsspp PRIVATE
-			-idirafter "${TICO_SWITCHVK_MESA_SOURCE}/include")
+		set(GBAStation_SWITCHVK_ROOT "${CMAKE_SOURCE_DIR}/../switchVK")
+		set(GBAStation_SWITCHVK_MESA_SOURCE "${GBAStation_SWITCHVK_ROOT}/.ci-build/nxvk-source")
+		set(GBAStation_SWITCHVK_CROSS_INCLUDE "${GBAStation_SWITCHVK_ROOT}/.ci-build/nxvk-cross-include")
+		target_sources(GBAStation-ppsspp PRIVATE
+			"${GBAStation_SWITCHVK_ROOT}/winsys/drm_shim.c"
+			"${GBAStation_SWITCHVK_ROOT}/winsys/switch_libc_shim.c"
+			"${GBAStation_SWITCHVK_ROOT}/winsys/nvk_loaderless_shim.c"
+			"${GBAStation_SWITCHVK_ROOT}/compat/compat.c")
+		target_include_directories(GBAStation-ppsspp PRIVATE
+			"${GBAStation_SWITCHVK_ROOT}/winsys"
+			"${GBAStation_SWITCHVK_ROOT}/compat"
+			"${GBAStation_SWITCHVK_CROSS_INCLUDE}"
+			"${GBAStation_SWITCHVK_MESA_SOURCE}/src/nouveau/drm")
+		target_compile_definitions(GBAStation-ppsspp PRIVATE _GNU_SOURCE _DEFAULT_SOURCE)
+		target_compile_options(GBAStation-ppsspp PRIVATE
+			-idirafter "${GBAStation_SWITCHVK_MESA_SOURCE}/include")
 	endif()
-	target_include_directories(tico-ppsspp PRIVATE "${RCHEEVOS_ROOT}/include")
-	target_compile_definitions(tico-ppsspp PRIVATE RC_CLIENT_SUPPORTS_HASH)
-	target_link_options(tico-ppsspp PRIVATE -Wl,--allow-multiple-definition -Wl,-u,vk_icdGetInstanceProcAddr -Wl,--wrap=open -Wl,--wrap=close -Wl,--wrap=stat -Wl,--wrap=lstat -Wl,--wrap=vk_icdGetInstanceProcAddr $<$<CONFIG:Release>:-Wl,--gc-sections>)
+	target_include_directories(GBAStation-ppsspp PRIVATE "${RCHEEVOS_ROOT}/include")
+	target_compile_definitions(GBAStation-ppsspp PRIVATE RC_CLIENT_SUPPORTS_HASH)
+	target_link_options(GBAStation-ppsspp PRIVATE -Wl,--allow-multiple-definition -Wl,-u,vk_icdGetInstanceProcAddr -Wl,--wrap=open -Wl,--wrap=close -Wl,--wrap=stat -Wl,--wrap=lstat -Wl,--wrap=vk_icdGetInstanceProcAddr $<$<CONFIG:Release>:-Wl,--gc-sections>)
 	if(CMAKE_STRIP AND CMAKE_BUILD_TYPE MATCHES "^(Release|MinSizeRel)$")
-		add_custom_command(TARGET tico-ppsspp POST_BUILD
-			COMMAND "${CMAKE_STRIP}" --strip-unneeded "$<TARGET_FILE:tico-ppsspp>"
-			COMMENT "Stripping PPSSPP Tico release symbols"
+		add_custom_command(TARGET GBAStation-ppsspp POST_BUILD
+			COMMAND "${CMAKE_STRIP}" --strip-unneeded "$<TARGET_FILE:GBAStation-ppsspp>"
+			COMMENT "Stripping PPSSPP GBAStation release symbols"
 			VERBATIM
 		)
 	endif()
-	setup_target_project(tico-ppsspp tico)
+	setup_target_project(GBAStation-ppsspp GBAStation)
 
-	set(tico-ppsspp_ROMFS_DIR "${CMAKE_CURRENT_BINARY_DIR}/switch_tico_romfs")
-	file(MAKE_DIRECTORY "${tico-ppsspp_ROMFS_DIR}")
-	file(COPY "${CMAKE_SOURCE_DIR}/assets" DESTINATION "${tico-ppsspp_ROMFS_DIR}")
-	file(COPY "${CMAKE_SOURCE_DIR}/tico/assets/" DESTINATION "${tico-ppsspp_ROMFS_DIR}/assets")
-	file(COPY "${CMAKE_SOURCE_DIR}/tico/fonts" DESTINATION "${tico-ppsspp_ROMFS_DIR}")
-	file(COPY "${CMAKE_SOURCE_DIR}/tico/lang" DESTINATION "${tico-ppsspp_ROMFS_DIR}")
+	set(GBAStation-ppsspp_ROMFS_DIR "${CMAKE_CURRENT_BINARY_DIR}/switch_GBAStation_romfs")
+	file(MAKE_DIRECTORY "${GBAStation-ppsspp_ROMFS_DIR}")
+	file(COPY "${CMAKE_SOURCE_DIR}/assets" DESTINATION "${GBAStation-ppsspp_ROMFS_DIR}")
+	file(COPY "${CMAKE_SOURCE_DIR}/GBAStation/assets/" DESTINATION "${GBAStation-ppsspp_ROMFS_DIR}/assets")
+	file(COPY "${CMAKE_SOURCE_DIR}/GBAStation/fonts" DESTINATION "${GBAStation-ppsspp_ROMFS_DIR}")
+	file(COPY "${CMAKE_SOURCE_DIR}/GBAStation/lang" DESTINATION "${GBAStation-ppsspp_ROMFS_DIR}")
 
 	nx_generate_nacp(GBAStationPPSSPPStub.nacp
 		NAME "GBAStation PPSSPP Stub"
 		AUTHOR "GBAStation"
 		VERSION "2.0.2"
 	)
-	nx_create_nro(tico-ppsspp NACP GBAStationPPSSPPStub.nacp ROMFS "${tico-ppsspp_ROMFS_DIR}")
+	nx_create_nro(GBAStation-ppsspp NACP GBAStationPPSSPPStub.nacp ROMFS "${GBAStation-ppsspp_ROMFS_DIR}")
 endif()
 
 if(UNITTEST)

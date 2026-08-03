@@ -4,6 +4,18 @@
 #include "imgui_impl_thin3d.h"
 #include <cstdio>
 
+static const ImWchar kGBAStationChineseRanges[] = {
+	0x0020, 0x00FF,
+	0x2000, 0x30FF,
+	0x3400, 0x9FFF,
+	0,
+};
+
+static const ImWchar kGBAStationMaterialRanges[] = {
+	0xE000, 0xF8FF,
+	0,
+};
+
 #include "Common/System/Display.h"
 #include "Common/Math/lin/matrix4x4.h"
 
@@ -296,16 +308,25 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw,
 	ImGuiIO& io = ImGui::GetIO();
 	g_proportionalFont = nullptr;
 	if (ttf_font_proportional) {
-		g_proportionalFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font_proportional, (int)proportional_size, 21.0f / g_display.dpi_scale_x, nullptr, io.Fonts->GetGlyphRangesDefault());
+		g_proportionalFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font_proportional, (int)proportional_size, 21.0f / g_display.dpi_scale_x, nullptr, kGBAStationChineseRanges);
 	}
 	if (ttf_font_fixed) {
-		g_fixedFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font_fixed, (int)fixed_size, 20.0f / g_display.dpi_scale_x, nullptr, io.Fonts->GetGlyphRangesDefault());
+		g_fixedFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font_fixed, (int)fixed_size, 20.0f / g_display.dpi_scale_x, nullptr, kGBAStationChineseRanges);
+	} else if (g_proportionalFont) {
+		g_fixedFont = g_proportionalFont;
 	} else {
 		g_fixedFont = io.Fonts->AddFontDefault();
 	}
 
 	if (!g_proportionalFont) {
 		g_proportionalFont = g_fixedFont;
+	}
+	if (g_proportionalFont) {
+		ImFontConfig iconConfig;
+		iconConfig.MergeMode = true;
+		iconConfig.PixelSnapH = true;
+		io.Fonts->AddFontFromFileTTF("romfs:/fonts/MaterialIcons-Regular.ttf",
+			21.0f / g_display.dpi_scale_x, &iconConfig, kGBAStationMaterialRanges);
 	}
 
 	// g_fixedFont = io.Fonts->AddFontDefault();

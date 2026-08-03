@@ -45,7 +45,7 @@ jobs:
       - name: Build release NRO
         shell: bash
         run: |
-          chmod +x build_local.sh build_ppsspp_tico_nro.sh
+          chmod +x build_local.sh build_ppsspp_GBAStation_nro.sh
           SWITCH_NVK_ROOT="$GITHUB_WORKSPACE/../switchVK/nvk-switch-26.1.4" \
             bash build_local.sh --clean -j "$(nproc)"
           test -s GBAStationPPSSPPStub.nro
