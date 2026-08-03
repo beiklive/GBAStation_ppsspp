@@ -1338,6 +1338,75 @@ void Overlay::DrawSocialArea(ImDrawList *drawList, ImVec2 displaySize, float sca
 }
 
 void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease) {
+	// The whole overlay uses the same GBAStation 3DS shell.  Sub-pages do not
+	// replace the shell: the active tab stays visible while its rows change.
+	{
+		const float width = std::min(displaySize.x - 72.0f * scale, 1192.0f * scale);
+		const float height = std::min(displaySize.y - 104.0f * scale, 590.0f * scale);
+		const ImVec2 min((displaySize.x - width) * 0.5f, (displaySize.y - height) * 0.5f);
+		const ImVec2 max(min.x + width, min.y + height);
+		const float side = std::min(340.0f * scale, width * 0.34f);
+		const float header = 62.0f * scale;
+		const float tabHeight = (height - header - 22.0f * scale) / 8.0f;
+		const char *tabs[] = {"返回游戏", "保存状态", "读取状态", "金手指", "画面设置", "功能设置", "重置游戏", "退出游戏"};
+		const char *descriptions[] = {"继续当前游戏。", "创建即时存档。", "读取即时存档。", "管理游戏金手指。", "调整画面比例和缩放。", "调整可即时生效的核心选项。", "重新启动当前游戏。", "返回 GBAStation。"};
+		int active = selection_;
+		if (menu_ == Menu::SaveStates) active = saveStateMode_ == OverlayAction::SaveState ? 1 : 2;
+		else if (menu_ == Menu::Cheats) active = 3;
+		else if (menu_ == Menu::Settings) active = coreSettingsPage_ ? 5 : 4;
+		active = std::clamp(active, 0, 7);
+		const ImU32 bg = IM_COL32(9, 13, 23, (int)(238.0f * ease));
+		const ImU32 panel = IM_COL32(19, 25, 40, (int)(236.0f * ease));
+		const ImU32 line = IM_COL32(105, 126, 165, (int)(110.0f * ease));
+		const ImU32 text = IM_COL32(243, 247, 255, (int)(255.0f * ease));
+		const ImU32 muted = IM_COL32(178, 190, 213, (int)(240.0f * ease));
+		ImFont *font = ImGui::GetFont();
+		const float titleSize = ImGui::GetFontSize() * 1.08f;
+		const float labelSize = ImGui::GetFontSize() * 0.84f;
+		drawList->AddRectFilled(min, max, bg);
+		drawList->AddRectFilled(ImVec2(min.x, min.y + header), ImVec2(min.x + side, max.y), panel);
+		drawList->AddLine(ImVec2(min.x + side, min.y + header), ImVec2(min.x + side, max.y), line);
+		drawList->AddLine(ImVec2(min.x, min.y + header), ImVec2(max.x, min.y + header), line);
+		drawList->AddText(font, titleSize, ImVec2(min.x + 28.0f * scale, min.y + 17.0f * scale), text, "游戏菜单");
+		for (int i = 0; i < 8; ++i) {
+			const ImVec2 rowMin(min.x + 12.0f * scale, min.y + header + 10.0f * scale + i * tabHeight);
+			const ImVec2 rowMax(min.x + side - 12.0f * scale, rowMin.y + tabHeight - 3.0f * scale);
+			const bool selected = i == active;
+			if (selected) {
+				drawList->AddRectFilled(rowMin, rowMax, IM_COL32(56, 70, 105, (int)(105.0f * ease)));
+				drawList->AddRect(rowMin, rowMax, IM_COL32(126, 175, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
+			}
+			const ImVec2 size = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, tabs[i]);
+			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 22.0f * scale, rowMin.y + (rowMax.y - rowMin.y - size.y) * 0.5f), selected ? text : muted, tabs[i]);
+		}
+		const float contentX = min.x + side + 34.0f * scale;
+		const float contentRight = max.x - 34.0f * scale;
+		const float firstRowY = min.y + header + 38.0f * scale;
+		drawList->AddText(font, titleSize, ImVec2(contentX, min.y + 18.0f * scale), text, tabs[active]);
+		auto row = [&](int i, bool selected, const std::string &label, const std::string &value) {
+			const ImVec2 rowMin(contentX, firstRowY + i * 58.0f * scale), rowMax(contentRight, firstRowY + (i + 1) * 58.0f * scale - 5.0f * scale);
+			if (selected) drawList->AddRect(rowMin, rowMax, IM_COL32(126, 175, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
+			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 18.0f * scale, rowMin.y + 16.0f * scale), selected ? text : muted, label.c_str());
+			if (!value.empty()) { const ImVec2 size = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, value.c_str()); drawList->AddText(font, labelSize, ImVec2(rowMax.x - size.x - 18.0f * scale, rowMin.y + 16.0f * scale), text, value.c_str()); }
+		};
+		if (menu_ == Menu::SaveStates) {
+			for (int i = 0; i < Ppsspp::SaveStateSlotCount; ++i) row(i, i == selection_, "存档槽 " + std::to_string(i + 1), slotInUse_[i] ? "已有存档" : "空");
+		} else if (menu_ == Menu::Cheats) {
+			if (cheats_.empty()) drawList->AddText(font, labelSize, ImVec2(contentX, firstRowY), muted, "当前游戏没有可用金手指。");
+			else for (int i = 0; i < std::min(7, (int)cheats_.size()); ++i) row(i, i == selection_, cheats_[i].name, cheats_[i].enabled ? "开启" : "关闭");
+		} else if (menu_ == Menu::Settings) {
+			if (coreSettingsPage_) {
+				const char *labels[] = {"跳帧", "自动跳帧", "快速内存", "硬件变换", "纹理过滤", "各向异性过滤", "去色带"};
+				for (int i = 0; i < 7; ++i) row(i, i == selection_, labels[i], "左右调整");
+			} else {
+				row(0, selection_ == 0, "显示模式", TranslatedDisplayModeLabel(displaySettings_.mode));
+				row(1, selection_ == 1, "画面比例", TranslatedDisplaySizeLabel(displaySettings_.size));
+			}
+		} else {
+			drawList->AddText(font, labelSize, ImVec2(contentX, firstRowY), muted, descriptions[active]);
+		}
+		return;
+	}
 	// The quick menu is the first screen users see.  Keep the detailed pages
 	// below, but render this root as GBAStation's left-tab/right-content layout
 	// instead of the old centered GBAStation list.
@@ -1849,11 +1918,8 @@ void Overlay::DrawUI(float width, float height, float deltaTime) {
 	const float scale = std::max(1.0f, height / 720.0f);
 
 	DrawBackground(drawList, displaySize, ease);
-	DrawTitle(drawList, displaySize, scale, ease);
 	DrawMenu(drawList, displaySize, scale, ease);
 	DrawHelpers(drawList, displaySize, scale, ease);
-	DrawSocialArea(drawList, displaySize, scale, ease);
-	DrawStatus(drawList, displaySize, scale, ease, deltaTime);
 }
 
 void Overlay::Render(Draw::DrawContext *draw) {
