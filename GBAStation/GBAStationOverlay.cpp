@@ -190,18 +190,32 @@ uint8_t *LoadFirstImGuiFontData(const char *const *paths, size_t pathCount, size
 	return nullptr;
 }
 
-uint8_t *LoadSwitchChineseFontData(size_t *sizeOut) {
+uint8_t *LoadSwitchChineseFontData(size_t *sizeOut, const char **sourceName) {
 #ifdef __SWITCH__
 	*sizeOut = 0;
+	if (sourceName) *sourceName = nullptr;
 	if (R_FAILED(plInitialize(PlServiceType_User)))
 		return nullptr;
 
+	const struct {
+		PlSharedFontType type;
+		const char *name;
+	} fonts[] = {
+		{PlSharedFontType_ChineseSimplified, "ChineseSimplified"},
+		{PlSharedFontType_ExtChineseSimplified, "ExtChineseSimplified"},
+		{PlSharedFontType_Standard, "Standard"},
+	};
+
 	PlFontData sharedFont{};
-	Result rc = plGetSharedFontByType(&sharedFont, PlSharedFontType_ExtChineseSimplified);
-	if (R_FAILED(rc) || !sharedFont.address || sharedFont.size == 0)
-		rc = plGetSharedFontByType(&sharedFont, PlSharedFontType_ChineseSimplified);
-	if (R_FAILED(rc) || !sharedFont.address || sharedFont.size == 0)
-	{
+	const char *loadedName = nullptr;
+	for (const auto &candidate : fonts) {
+		if (R_SUCCEEDED(plGetSharedFontByType(&sharedFont, candidate.type)) &&
+			sharedFont.address && sharedFont.size > 0) {
+			loadedName = candidate.name;
+			break;
+		}
+	}
+	if (!loadedName) {
 		plExit();
 		return nullptr;
 	}
@@ -214,9 +228,11 @@ uint8_t *LoadSwitchChineseFontData(size_t *sizeOut) {
 	std::memcpy(data, sharedFont.address, sharedFont.size);
 	plExit();
 	*sizeOut = sharedFont.size;
+	if (sourceName) *sourceName = loadedName;
 	return data;
 #else
 	(void)sizeOut;
+	if (sourceName) *sourceName = nullptr;
 	return nullptr;
 #endif
 }
@@ -547,12 +563,11 @@ bool Overlay::Init(Draw::DrawContext *draw, const char *gamePath, LogCallback lo
 	size_t descriptionFontSize = 0;
 	const char *loadedTitleFont = nullptr;
 	const char *loadedDescriptionFont = nullptr;
-	uint8_t *titleFont = LoadSwitchChineseFontData(&titleFontSize);
-	if (titleFont) {
-		loadedTitleFont = "system:ExtChineseSimplified";
-	} else {
-		titleFont = LoadFirstImGuiFontData(titleFontPaths, sizeof(titleFontPaths) / sizeof(titleFontPaths[0]), &titleFontSize, &loadedTitleFont);
-	}
+	// Thin3D now builds the Switch shared-font atlas itself so all three shared
+	// faces can be merged before its texture upload.  These ROMFS files remain
+	// the fallback for a failed pl:u service and non-Switch builds.
+	uint8_t *titleFont = LoadFirstImGuiFontData(titleFontPaths,
+		sizeof(titleFontPaths) / sizeof(titleFontPaths[0]), &titleFontSize, &loadedTitleFont);
 	uint8_t *descriptionFont = titleFont ? nullptr : LoadFirstImGuiFontData(
 		descriptionFontPaths, sizeof(descriptionFontPaths) / sizeof(descriptionFontPaths[0]),
 		&descriptionFontSize, &loadedDescriptionFont);
@@ -1250,9 +1265,9 @@ void Overlay::DrawBackground(ImDrawList *drawList, ImVec2 displaySize, float eas
 	const ImU32 colMax = IM_COL32(0, 0, 0, maxAlpha);
 	const ImU32 colBase = IM_COL32(0, 0, 0, baseAlpha);
 
-	drawList->AddRectFilledMulGBAStationlor(ImVec2(0.0f, 0.0f), ImVec2(displaySize.x, topH), colMax, colMax, colBase, colBase);
+	drawList->AddRectFilledMultiColor(ImVec2(0.0f, 0.0f), ImVec2(displaySize.x, topH), colMax, colMax, colBase, colBase);
 	drawList->AddRectFilled(ImVec2(0.0f, topH), ImVec2(displaySize.x, topH + centerH), colBase);
-	drawList->AddRectFilledMulGBAStationlor(ImVec2(0.0f, displaySize.y - bottomH), displaySize, colBase, colBase, colMax, colMax);
+	drawList->AddRectFilledMultiColor(ImVec2(0.0f, displaySize.y - bottomH), displaySize, colBase, colBase, colMax, colMax);
 }
 
 std::string Overlay::TitleText() const {

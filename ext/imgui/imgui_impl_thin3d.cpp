@@ -1,20 +1,99 @@
 // dear imgui: Renderer Backend for PPSSPP's thin3d
 
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "imgui_impl_thin3d.h"
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
-static const ImWchar kGBAStationChineseRanges[] = {
-	0x0020, 0x00FF,
-	0x2000, 0x30FF,
-	0x3400, 0x9FFF,
-	0,
-};
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
 
 static const ImWchar kGBAStationMaterialRanges[] = {
 	0xE000, 0xF8FF,
 	0,
 };
+
+static const ImWchar *GetGBAStationMenuGlyphRanges(ImGuiIO &io) {
+	static ImVector<ImWchar> ranges;
+	if (!ranges.empty())
+		return ranges.Data;
+
+	ImFontGlyphRangesBuilder builder;
+	builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+	builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+	builder.AddText(u8"返回游戏 保存状态 读取状态 金手指 画面设置 功能设置 重置游戏 退出游戏 核心设置 按键映射 "
+					u8"系统 视频 渲染 性能 纹理 输入 显示 音频 语言 自动 开启 关闭 分辨率 跳帧 "
+					u8"存档 槽位 游戏 模拟器 菜单 暂停 快进 确认 取消 当前 设置");
+	builder.BuildRanges(&ranges);
+	return ranges.Data;
+}
+
+#ifdef __SWITCH__
+// Build the atlas from the Switch shared fonts before Thin3D uploads it.  The
+// previous GBAStation path supplied one regional font to this backend, which
+// leaves any glyph missing from that face rendered as '?'.
+static ImFont *AddGBAStationSystemFonts(ImGuiIO &io, float size) {
+	if (R_FAILED(plInitialize(PlServiceType_User)) ) {
+		std::fprintf(stderr, "GBAStation: pl:u unavailable, using ROMFS fallback font\n");
+		return nullptr;
+	}
+
+	const PlSharedFontType fontTypes[] = {
+		PlSharedFontType_ExtChineseSimplified,
+		PlSharedFontType_ChineseSimplified,
+		PlSharedFontType_Standard,
+	};
+	ImFont *font = nullptr;
+	int loadedFonts = 0;
+	for (const PlSharedFontType type : fontTypes) {
+		PlFontData sharedFont{};
+		if (R_FAILED(plGetSharedFontByType(&sharedFont, type)) ||
+			!sharedFont.address || sharedFont.size == 0) {
+			continue;
+		}
+
+		void *fontData = std::malloc(sharedFont.size);
+		if (!fontData) {
+			continue;
+		}
+		std::memcpy(fontData, sharedFont.address, sharedFont.size);
+
+		ImFontConfig config;
+		config.OversampleH = 1;
+		config.OversampleV = 1;
+		config.MergeMode = font != nullptr;
+		ImFont *added = io.Fonts->AddFontFromMemoryTTF(fontData,
+			(int)sharedFont.size, size, &config, GetGBAStationMenuGlyphRanges(io));
+		if (!added) {
+			std::free(fontData);
+			continue;
+		}
+		if (!font) {
+			font = added;
+		}
+		++loadedFonts;
+	}
+	plExit();
+	if (!font) {
+		std::fprintf(stderr, "GBAStation: no usable Switch shared font\n");
+		return nullptr;
+	}
+
+	io.FontDefault = font;
+	ImFontConfig iconConfig;
+	iconConfig.MergeMode = true;
+	iconConfig.PixelSnapH = true;
+	if (!io.Fonts->AddFontFromFileTTF("romfs:/fonts/MaterialIcons-Regular.ttf", size,
+		&iconConfig, kGBAStationMaterialRanges)) {
+		std::fprintf(stderr, "GBAStation: Material Icons font unavailable\n");
+	}
+	std::fprintf(stderr, "GBAStation: Switch font atlas built from %d shared sources\n", loadedFonts);
+	return font;
+}
+#endif
 
 #include "Common/System/Display.h"
 #include "Common/Math/lin/matrix4x4.h"
@@ -307,11 +386,23 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw,
 	const uint8_t *ttf_font_fixed, size_t fixed_size) {
 	ImGuiIO& io = ImGui::GetIO();
 	g_proportionalFont = nullptr;
-	if (ttf_font_proportional) {
-		g_proportionalFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font_proportional, (int)proportional_size, 21.0f / g_display.dpi_scale_x, nullptr, kGBAStationChineseRanges);
+
+#ifdef __SWITCH__
+	g_proportionalFont = AddGBAStationSystemFonts(io, 21.0f / g_display.dpi_scale_x);
+#endif
+	if (!g_proportionalFont && ttf_font_proportional) {
+		ImFontConfig config;
+		config.OversampleH = 1;
+		config.OversampleV = 1;
+		g_proportionalFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font_proportional, (int)proportional_size, 21.0f / g_display.dpi_scale_x, &config, GetGBAStationMenuGlyphRanges(io));
 	}
-	if (ttf_font_fixed) {
-		g_fixedFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font_fixed, (int)fixed_size, 20.0f / g_display.dpi_scale_x, nullptr, kGBAStationChineseRanges);
+	if (!g_proportionalFont && ttf_font_fixed) {
+		ImFontConfig config;
+		config.OversampleH = 1;
+		config.OversampleV = 1;
+		config.MergeMode = g_proportionalFont != nullptr;
+		ImFont *fixedFont = io.Fonts->AddFontFromMemoryTTF((void *)ttf_font_fixed, (int)fixed_size, 20.0f / g_display.dpi_scale_x, &config, GetGBAStationMenuGlyphRanges(io));
+		g_fixedFont = g_proportionalFont ? g_proportionalFont : fixedFont;
 	} else if (g_proportionalFont) {
 		g_fixedFont = g_proportionalFont;
 	} else {
@@ -321,7 +412,7 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw,
 	if (!g_proportionalFont) {
 		g_proportionalFont = g_fixedFont;
 	}
-	if (g_proportionalFont) {
+	if (g_proportionalFont && !io.FontDefault) {
 		ImFontConfig iconConfig;
 		iconConfig.MergeMode = true;
 		iconConfig.PixelSnapH = true;
