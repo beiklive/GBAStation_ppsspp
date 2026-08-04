@@ -66,6 +66,11 @@ public:
 
 	bool IsReady() const { return ready_; }
 	bool IsVisible() const { return visible_; }
+	bool ConsumeCoreSettingsChanged() {
+		const bool changed = coreSettingsChanged_;
+		coreSettingsChanged_ = false;
+		return changed;
+	}
 	bool ShouldExitGame() const { return exitRequested_; }
 	void ClearExitRequest() { exitRequested_ = false; }
 	OverlayCommand ConsumeCommand();
@@ -111,6 +116,7 @@ private:
 	int selection_ = 0;
 	int settingsSelection_ = 0;
 	bool coreSettingsPage_ = false;
+	bool coreSettingsChanged_ = false;
 	Menu menu_ = Menu::Quick;
 	OverlayAction saveStateMode_ = OverlayAction::SaveState;
 	DisplaySettings displaySettings_;

@@ -83,6 +83,7 @@ void ApplyPpssppOptions(const std::map<std::string, std::string> &options) {
 	applyBool("ppsspp_software_rendering", g_Config.bSoftwareRendering);
 	applyBool("ppsspp_cropto16x9", g_Config.bDisplayCropTo16x9);
 	applyBool("ppsspp_auto_frameskip", g_Config.bAutoFrameSkip);
+	applyBool("ppsspp_vsync", g_Config.bVSync);
 	applyBool("ppsspp_frame_duplication", g_Config.bRenderDuplicateFrames);
 	applyBool("ppsspp_skip_buffer_effects", g_Config.bSkipBufferEffects);
 	applyBool("ppsspp_disable_range_culling", g_Config.bDisableRangeCulling);

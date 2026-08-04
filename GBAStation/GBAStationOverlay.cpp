@@ -995,6 +995,7 @@ void Overlay::CycleSetting(int direction) {
 		case 9: g_Config.bTexDeposterize = !g_Config.bTexDeposterize; break;
 		default: break;
 		}
+		coreSettingsChanged_ = true;
 		return;
 	}
 	displaySettings_ = NormalizePpssppDisplaySettingsForCurrentMode(displaySettings_);

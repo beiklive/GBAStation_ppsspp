@@ -345,6 +345,28 @@ void ApplyGBAStationPpssppCoreSettings() {
 		g_Config.bFastMemory ? 1 : 0, g_Config.iIOTimingMethod);
 }
 
+void SaveGBAStationPpssppRuntimeSettings() {
+	PpssppCoreConfig config(g_state.log);
+	config.Load();
+	CoreConfig &raw = config.RawConfig();
+	auto enabled = [](bool value) { return value ? "enabled" : "disabled"; };
+	static constexpr const char *kFiltering[] = {"Auto", "Auto", "Nearest", "Linear", "Auto max quality"};
+	static constexpr const char *kAnisotropy[] = {"Off", "2x", "4x", "8x", "16x"};
+
+	raw.SetValue("ppsspp_internal_resolution", std::to_string(std::max(0, g_Config.iInternalResolution)));
+	raw.SetValue("ppsspp_frameskip", std::to_string(std::max(0, g_Config.iFrameSkip)));
+	raw.SetValue("ppsspp_auto_frameskip", enabled(g_Config.bAutoFrameSkip));
+	raw.SetValue("ppsspp_fast_memory", enabled(g_Config.bFastMemory));
+	raw.SetValue("ppsspp_gpu_hardware_transform", enabled(g_Config.bHardwareTransform));
+	raw.SetValue("ppsspp_skip_buffer_effects", enabled(g_Config.bSkipBufferEffects));
+	raw.SetValue("ppsspp_vsync", enabled(g_Config.bVSync));
+	raw.SetValue("ppsspp_texture_filtering", kFiltering[std::clamp(g_Config.iTexFiltering, 0, 4)]);
+	raw.SetValue("ppsspp_texture_anisotropic_filtering", kAnisotropy[std::clamp(g_Config.iAnisotropyLevel, 0, 4)]);
+	raw.SetValue("ppsspp_texture_deposterize", enabled(g_Config.bTexDeposterize));
+	raw.Save();
+	Log("saved PPSSPP runtime core settings");
+}
+
 void ApplyGBAStationPpssppDisplaySettings(DisplaySettings &settings) {
 	const std::string mode = ConfigValue("core.ppsspp.display_mode", "");
 	if (mode == "Integer") {
@@ -1373,6 +1395,15 @@ void PpssppRuntime::HandleInput(const FrameInput &input) {
 	// physical Switch controls, while its open chord remains configurable.
 	const bool inputConsumedByOverlay = g_state.overlay.HandleInput(input.buttons, input.pressed,
 		input.leftStickX, input.leftStickY, input.rightStickX, input.rightStickY, overlayTogglePressed);
+	if (g_state.overlay.ConsumeCoreSettingsChanged()) {
+		SaveGBAStationPpssppRuntimeSettings();
+		if (gpu) {
+			const DisplayLayoutConfig &layout = g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape);
+			gpu->NotifyConfigChanged();
+			gpu->CheckConfigChanged(layout);
+		}
+		Log("applied PPSSPP runtime core settings");
+	}
 	ExecuteOverlayCommand(g_state.overlay.ConsumeCommand());
 	if (g_state.overlay.ShouldExitGame()) {
 		Log("GBAStation overlay exit requested");
