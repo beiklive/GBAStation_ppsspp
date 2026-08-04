@@ -1253,8 +1253,8 @@ void Overlay::UpdateBattery(float deltaTime) {
 }
 
 void Overlay::DrawBackground(ImDrawList *drawList, ImVec2 displaySize, float ease) {
-	const int baseAlpha = (int)(200.0f * ease);
-	const int maxAlpha = (int)(250.0f * ease);
+	const int baseAlpha = (int)(72.0f * ease);
+	const int maxAlpha = (int)(110.0f * ease);
 	if (baseAlpha <= 0) {
 		return;
 	}
@@ -1355,8 +1355,8 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		else if (menu_ == Menu::Cheats) active = 3;
 		else if (menu_ == Menu::Settings) active = coreSettingsPage_ ? 5 : 4;
 		active = std::clamp(active, 0, 7);
-		const ImU32 bg = IM_COL32(9, 13, 23, (int)(238.0f * ease));
-		const ImU32 panel = IM_COL32(19, 25, 40, (int)(236.0f * ease));
+		const ImU32 bg = IM_COL32(9, 13, 23, (int)(158.0f * ease));
+		const ImU32 panel = IM_COL32(19, 25, 40, (int)(178.0f * ease));
 		const ImU32 line = IM_COL32(105, 126, 165, (int)(110.0f * ease));
 		const ImU32 text = IM_COL32(243, 247, 255, (int)(255.0f * ease));
 		const ImU32 muted = IM_COL32(178, 190, 213, (int)(240.0f * ease));
@@ -1381,7 +1381,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		}
 		const float contentX = min.x + side + 34.0f * scale;
 		const float contentRight = max.x - 34.0f * scale;
-		const float firstRowY = min.y + header + 38.0f * scale;
+		const float firstRowY = min.y + header + 140.0f * scale;
 		drawList->AddText(font, titleSize, ImVec2(contentX, min.y + 18.0f * scale), text, tabs[active]);
 		auto row = [&](int i, bool selected, const std::string &label, const std::string &value) {
 			const ImVec2 rowMin(contentX, firstRowY + i * 58.0f * scale), rowMax(contentRight, firstRowY + (i + 1) * 58.0f * scale - 5.0f * scale);
@@ -1390,7 +1390,8 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 			if (!value.empty()) { const ImVec2 size = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, value.c_str()); drawList->AddText(font, labelSize, ImVec2(rowMax.x - size.x - 18.0f * scale, rowMin.y + 16.0f * scale), text, value.c_str()); }
 		};
 		if (menu_ == Menu::SaveStates) {
-			for (int i = 0; i < Ppsspp::SaveStateSlotCount; ++i) row(i, i == selection_, "存档槽 " + std::to_string(i + 1), slotInUse_[i] ? "已有存档" : "空");
+			const int firstSlot = std::clamp(selection_ - 5, 0, Ppsspp::SaveStateSlotCount - 6);
+			for (int rowIndex = 0; rowIndex < 6; ++rowIndex) { const int slot = firstSlot + rowIndex; row(rowIndex, slot == selection_, "存档槽 " + std::to_string(slot + 1), slotInUse_[slot] ? "已有存档" : "空"); }
 		} else if (menu_ == Menu::Cheats) {
 			if (cheats_.empty()) drawList->AddText(font, labelSize, ImVec2(contentX, firstRowY), muted, "当前游戏没有可用金手指。");
 			else for (int i = 0; i < std::min(7, (int)cheats_.size()); ++i) row(i, i == selection_, cheats_[i].name, cheats_[i].enabled ? "开启" : "关闭");
@@ -1404,6 +1405,12 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 			}
 		} else {
 			drawList->AddText(font, labelSize, ImVec2(contentX, firstRowY), muted, descriptions[active]);
+			if (active == 1 || active == 2) {
+				for (int slot = 0; slot < 6; ++slot) row(slot, false, "存档槽 " + std::to_string(slot + 1), slotInUse_[slot] ? "已有存档" : "空");
+			} else if (active == 4 || active == 5) {
+				row(0, false, "显示模式", TranslatedDisplayModeLabel(displaySettings_.mode));
+				row(1, false, "画面比例", TranslatedDisplaySizeLabel(displaySettings_.size));
+			}
 		}
 		return;
 	}

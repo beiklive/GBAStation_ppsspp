@@ -29,7 +29,7 @@ constexpr float FontSize = 32.0f;
 }  // namespace Display
 
 namespace Ppsspp {
-constexpr int SaveStateSlotCount = 4;
+constexpr int SaveStateSlotCount = 10;
 }  // namespace Ppsspp
 
 namespace Logging {
