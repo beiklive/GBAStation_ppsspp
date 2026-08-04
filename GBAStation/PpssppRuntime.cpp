@@ -94,6 +94,7 @@ struct RuntimeState {
 	bool hostFrameOpen = false;
 	bool ppssppShutdown = false;
 	bool chainloadLauncher = false;
+	bool runtimeSettingsDirty = false;
 	std::string contentPath;
 	GBAStationGraphicsHost graphicsHost;
 	GraphicsContext *graphicsContext = nullptr;
@@ -1287,6 +1288,7 @@ bool PpssppRuntime::Configure(const LaunchInfo &launch) {
 	g_state.chainloadLauncher = false;
 	g_state.frameOpen = false;
 	g_state.hostFrameOpen = false;
+	g_state.runtimeSettingsDirty = false;
 	g_state.contentPath = launch.contentPath;
 	g_state.log = log_;
 	PROFILE_INIT();
@@ -1397,12 +1399,8 @@ void PpssppRuntime::HandleInput(const FrameInput &input) {
 		input.leftStickX, input.leftStickY, input.rightStickX, input.rightStickY, overlayTogglePressed);
 	if (g_state.overlay.ConsumeCoreSettingsChanged()) {
 		SaveGBAStationPpssppRuntimeSettings();
-		if (gpu) {
-			const DisplayLayoutConfig &layout = g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape);
-			gpu->NotifyConfigChanged();
-			gpu->CheckConfigChanged(layout);
-		}
-		Log("applied PPSSPP runtime core settings");
+		g_state.runtimeSettingsDirty = true;
+		Log("queued PPSSPP runtime core settings");
 	}
 	ExecuteOverlayCommand(g_state.overlay.ConsumeCommand());
 	if (g_state.overlay.ShouldExitGame()) {
@@ -1458,6 +1456,12 @@ void PpssppRuntime::RunFrame() {
 	if (gpu) {
 		gpu->BeginHostFrame(displayLayoutConfig);
 		g_state.hostFrameOpen = true;
+		if (g_state.runtimeSettingsDirty) {
+			gpu->NotifyConfigChanged();
+			gpu->CheckConfigChanged(displayLayoutConfig);
+			g_state.runtimeSettingsDirty = false;
+			Log("applied PPSSPP runtime core settings");
+		}
 	}
 
 	if (g_state.overlay.IsVisible()) {
