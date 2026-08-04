@@ -1368,22 +1368,10 @@ void PpssppRuntime::HandleInput(const FrameInput &input) {
 			RefreshCheatAvailability();
 		}
 	}
-	// Overlay used to receive the physical HID mask and consequently opened on
-	// its built-in Plus+Minus chord.  Feed it a synthesized frontend mask so
-	// every navigation and menu action follows config.cfg instead.
-	u64 overlayButtons = 0;
-	u64 overlayPressed = 0;
-	auto mapOverlayButton = [&](const char *key, const char *fallback, u64 logical) {
-		if (BindingHeld(key, fallback, input.buttons)) overlayButtons |= logical;
-		if (BindingPressedEdge(key, fallback, input.buttons, input.pressed)) overlayPressed |= logical;
-	};
-	mapOverlayButton("psp.handle.up", "PAD_UP", HidNpadButton_Up);
-	mapOverlayButton("psp.handle.down", "PAD_DOWN", HidNpadButton_Down);
-	mapOverlayButton("psp.handle.left", "PAD_LEFT", HidNpadButton_Left);
-	mapOverlayButton("psp.handle.right", "PAD_RIGHT", HidNpadButton_Right);
-	mapOverlayButton("psp.handle.a", "PAD_A", HidNpadButton_A);
-	mapOverlayButton("psp.handle.b", "PAD_B", HidNpadButton_B);
-	const bool inputConsumedByOverlay = g_state.overlay.HandleInput(overlayButtons, overlayPressed,
+	// Gameplay bindings may deliberately move PSP directions onto either stick.
+	// The GBAStation menu is a frontend surface and always navigates with the
+	// physical Switch controls, while its open chord remains configurable.
+	const bool inputConsumedByOverlay = g_state.overlay.HandleInput(input.buttons, input.pressed,
 		input.leftStickX, input.leftStickY, input.rightStickX, input.rightStickY, overlayTogglePressed);
 	ExecuteOverlayCommand(g_state.overlay.ConsumeCommand());
 	if (g_state.overlay.ShouldExitGame()) {

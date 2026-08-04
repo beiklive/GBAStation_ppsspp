@@ -951,29 +951,13 @@ OverlayCommand Overlay::ConsumeCommand() {
 }
 
 int Overlay::QuickMenuStorageIndex(int visibleIndex) const {
-	int visible = 0;
-	for (int i = 0; i < (int)(sizeof(kQuickMenuItems) / sizeof(kQuickMenuItems[0])); ++i) {
-		const QuickMenuItem &item = kQuickMenuItems[i];
-		if (item.action == QuickMenuItem::Action::Cheats && !cheatsEnabled_) {
-			continue;
-		}
-		if (visible == visibleIndex) {
-			return i;
-		}
-		visible++;
-	}
-	return 0;
+	return std::clamp(visibleIndex, 0,
+		static_cast<int>(sizeof(kQuickMenuItems) / sizeof(kQuickMenuItems[0])) - 1);
 }
 
 int Overlay::ItemCount() const {
 	if (menu_ == Menu::Quick) {
-		int count = 0;
-		for (const QuickMenuItem &item : kQuickMenuItems) {
-			if (item.action != QuickMenuItem::Action::Cheats || cheatsEnabled_) {
-				count++;
-			}
-		}
-		return count;
+		return static_cast<int>(sizeof(kQuickMenuItems) / sizeof(kQuickMenuItems[0]));
 	}
 	if (menu_ == Menu::SaveStates) {
 		return Ppsspp::SaveStateSlotCount;
@@ -981,7 +965,7 @@ int Overlay::ItemCount() const {
 	if (menu_ == Menu::Cheats) {
 		return std::max(1, (int)cheats_.size());
 	}
-	return coreSettingsPage_ ? 7 : 2;
+	return coreSettingsPage_ ? 10 : 2;
 }
 
 void Overlay::ApplyDisplaySettings(bool save) {
@@ -999,13 +983,16 @@ void Overlay::CycleSetting(int direction) {
 
 	if (coreSettingsPage_) {
 		switch (settingsSelection_) {
-		case 0: g_Config.iFrameSkip = (g_Config.iFrameSkip + direction + 6) % 6; break;
-		case 1: g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip; break;
-		case 2: g_Config.bFastMemory = !g_Config.bFastMemory; break;
-		case 3: g_Config.bHardwareTransform = !g_Config.bHardwareTransform; break;
-		case 4: g_Config.iTexFiltering = g_Config.iTexFiltering >= 4 ? 1 : g_Config.iTexFiltering + 1; break;
-		case 5: g_Config.iAnisotropyLevel = (g_Config.iAnisotropyLevel + direction + 5) % 5; break;
-		case 6: g_Config.bTexDeposterize = !g_Config.bTexDeposterize; break;
+		case 0: g_Config.iInternalResolution = std::clamp(g_Config.iInternalResolution + direction, 0, 5); break;
+		case 1: g_Config.iFrameSkip = (g_Config.iFrameSkip + direction + 6) % 6; break;
+		case 2: g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip; break;
+		case 3: g_Config.bFastMemory = !g_Config.bFastMemory; break;
+		case 4: g_Config.bHardwareTransform = !g_Config.bHardwareTransform; break;
+		case 5: g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects; break;
+		case 6: g_Config.bVSync = !g_Config.bVSync; break;
+		case 7: g_Config.iTexFiltering = g_Config.iTexFiltering >= 4 ? 1 : g_Config.iTexFiltering + 1; break;
+		case 8: g_Config.iAnisotropyLevel = (g_Config.iAnisotropyLevel + direction + 5) % 5; break;
+		case 9: g_Config.bTexDeposterize = !g_Config.bTexDeposterize; break;
 		default: break;
 		}
 		return;
@@ -1063,14 +1050,16 @@ void Overlay::ExecuteSelection() {
 		selection_ = currentStateSlot_;
 		animTimer_ = kOverlayAnimDuration;
 	} else if (item.action == QuickMenuItem::Action::Cheats) {
-		if (cheatsLoading_) {
-			return;
+		if (!cheatsLoading_) {
+			cheatsLoading_ = true;
+			cheatsLoadCommandSent_ = false;
+			cheatsLoadingDelayFrames_ = 1;
+			loaderTimer_ = 0.0f;
+			pendingCommand_ = {};
 		}
-		cheatsLoading_ = true;
-		cheatsLoadCommandSent_ = false;
-		cheatsLoadingDelayFrames_ = 1;
-		loaderTimer_ = 0.0f;
-		pendingCommand_ = {};
+		menu_ = Menu::Cheats;
+		selection_ = 0;
+		animTimer_ = kOverlayAnimDuration;
 	} else if (item.action == QuickMenuItem::Action::VideoSettings ||
 		item.action == QuickMenuItem::Action::CoreSettings) {
 		menu_ = Menu::Settings;
@@ -1397,8 +1386,32 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 			else for (int i = 0; i < std::min(7, (int)cheats_.size()); ++i) row(i, i == selection_, cheats_[i].name, cheats_[i].enabled ? "开启" : "关闭");
 		} else if (menu_ == Menu::Settings) {
 			if (coreSettingsPage_) {
-				const char *labels[] = {"跳帧", "自动跳帧", "快速内存", "硬件变换", "纹理过滤", "各向异性过滤", "去色带"};
-				for (int i = 0; i < 7; ++i) row(i, i == selection_, labels[i], "左右调整");
+				const char *labels[] = {
+					"渲染分辨率", "跳帧", "自动跳帧", "快速内存", "硬件变换",
+					"跳过缓冲区效果", "垂直同步", "纹理过滤", "各向异性过滤", "纹理去色带"};
+				auto enabled = [](bool value) { return value ? std::string("开启") : std::string("关闭"); };
+				auto settingValue = [&](int index) {
+					switch (index) {
+					case 0: return g_Config.iInternalResolution == 0 ? std::string("自动") : std::to_string(g_Config.iInternalResolution) + "x";
+					case 1: return g_Config.iFrameSkip == 0 ? std::string("关闭") : std::to_string(g_Config.iFrameSkip) + " 帧";
+					case 2: return enabled(g_Config.bAutoFrameSkip);
+					case 3: return enabled(g_Config.bFastMemory);
+					case 4: return enabled(g_Config.bHardwareTransform);
+					case 5: return enabled(g_Config.bSkipBufferEffects);
+					case 6: return enabled(g_Config.bVSync);
+					case 7: {
+						const char *filters[] = {"默认", "自动", "最近邻", "线性", "高质量"};
+						return std::string(filters[std::clamp(g_Config.iTexFiltering, 0, 4)]);
+					}
+					case 8: return g_Config.iAnisotropyLevel == 0 ? std::string("关闭") : std::to_string(1 << g_Config.iAnisotropyLevel) + "x";
+					default: return enabled(g_Config.bTexDeposterize);
+					}
+				};
+				const int firstSetting = std::clamp(selection_ - 3, 0, 4);
+				for (int rowIndex = 0; rowIndex < 6; ++rowIndex) {
+					const int index = firstSetting + rowIndex;
+					row(rowIndex, index == selection_, labels[index], settingValue(index));
+				}
 			} else {
 				row(0, selection_ == 0, "显示模式", TranslatedDisplayModeLabel(displaySettings_.mode));
 				row(1, selection_ == 1, "画面比例", TranslatedDisplaySizeLabel(displaySettings_.size));
