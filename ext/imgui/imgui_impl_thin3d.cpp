@@ -23,7 +23,10 @@ static const ImWchar *GetGBAStationMenuGlyphRanges(ImGuiIO &io) {
 
 	ImFontGlyphRangesBuilder builder;
 	builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
-	builder.AddRanges(io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+	// Core option names are not limited to the usual 2,500 simplified glyphs.
+	// Keep the full shared-font range so the in-game menu never falls back to
+	// question marks for a valid Chinese setting name.
+	builder.AddRanges(io.Fonts->GetGlyphRangesChineseFull());
 	builder.AddText(u8"返回游戏 保存状态 读取状态 金手指 画面设置 功能设置 重置游戏 退出游戏 核心设置 按键映射 "
 					u8"系统 视频 渲染 性能 纹理 输入 显示 音频 语言 自动 开启 关闭 分辨率 跳帧 "
 					u8"存档 槽位 游戏 模拟器 菜单 暂停 快进 确认 取消 当前 设置");

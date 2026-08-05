@@ -848,6 +848,8 @@ void Overlay::Shutdown() {
 	exitRequested_ = false;
 	menu_ = Menu::Quick;
 	selection_ = 0;
+	tabSelection_ = 0;
+	sidebarFocused_ = true;
 	settingsSelection_ = 0;
 	displaySettings_ = {};
 	pendingCommand_ = {};
@@ -876,7 +878,10 @@ void Overlay::SetVisible(bool visible) {
 	visible_ = visible;
 	menu_ = Menu::Quick;
 	selection_ = 0;
+	tabSelection_ = 0;
+	sidebarFocused_ = true;
 	settingsSelection_ = 0;
+	coreSettingsPage_ = false;
 	animTimer_ = 0.0f;
 	lastAnalogNavMs_ = 0;
 	nextCheatVerticalNavMs_ = 0;
@@ -953,6 +958,46 @@ OverlayCommand Overlay::ConsumeCommand() {
 int Overlay::QuickMenuStorageIndex(int visibleIndex) const {
 	return std::clamp(visibleIndex, 0,
 		static_cast<int>(sizeof(kQuickMenuItems) / sizeof(kQuickMenuItems[0])) - 1);
+}
+
+void Overlay::ActivateTab(int tab) {
+	tabSelection_ = std::clamp(tab, 0, 7);
+	selection_ = 0;
+	settingsSelection_ = 0;
+	sidebarFocused_ = true;
+
+	switch (tabSelection_) {
+	case 1:
+		saveStateMode_ = OverlayAction::SaveState;
+		menu_ = Menu::SaveStates;
+		selection_ = currentStateSlot_;
+		break;
+	case 2:
+		saveStateMode_ = OverlayAction::LoadState;
+		menu_ = Menu::SaveStates;
+		selection_ = currentStateSlot_;
+		break;
+	case 3:
+		menu_ = Menu::Cheats;
+		if (!cheatsLoading_) {
+			cheatsLoading_ = true;
+			cheatsLoadCommandSent_ = false;
+			cheatsLoadingDelayFrames_ = 1;
+		}
+		break;
+	case 4:
+		menu_ = Menu::Settings;
+		coreSettingsPage_ = false;
+		break;
+	case 5:
+		menu_ = Menu::Settings;
+		coreSettingsPage_ = true;
+		break;
+	default:
+		menu_ = Menu::Quick;
+		break;
+	}
+	animTimer_ = kOverlayAnimDuration;
 }
 
 int Overlay::ItemCount() const {
@@ -1044,7 +1089,7 @@ void Overlay::ExecuteSelection() {
 		return;
 	}
 
-	const QuickMenuItem &item = kQuickMenuItems[QuickMenuStorageIndex(selection_)];
+	const QuickMenuItem &item = kQuickMenuItems[QuickMenuStorageIndex(tabSelection_)];
 	if (item.action == QuickMenuItem::Action::SaveState || item.action == QuickMenuItem::Action::LoadState) {
 		saveStateMode_ = item.action == QuickMenuItem::Action::SaveState ? OverlayAction::SaveState : OverlayAction::LoadState;
 		menu_ = Menu::SaveStates;
@@ -1084,13 +1129,8 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 	if (menuTogglePressed) {
 		if (!visible_) {
 			SetVisible(true);
-		} else if (menu_ != Menu::Quick) {
-			menu_ = Menu::Quick;
-			selection_ = 0;
-			settingsSelection_ = 0;
-			animTimer_ = kOverlayAnimDuration;
 		} else {
-			SetVisible(false);
+			sidebarFocused_ = true;
 		}
 	}
 
@@ -1167,6 +1207,20 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 			}
 		}
 
+		if (sidebarFocused_) {
+			if (navUp) ActivateTab((tabSelection_ + 7) % 8);
+			if (navDown) ActivateTab((tabSelection_ + 1) % 8);
+			if (navRight && (menu_ == Menu::SaveStates || menu_ == Menu::Cheats || menu_ == Menu::Settings)) sidebarFocused_ = false;
+			if (pressed & HidNpadButton_A) {
+				if (tabSelection_ == 0) SetVisible(false);
+				else if (tabSelection_ == 6) { pendingCommand_ = { OverlayAction::Reset, 0 }; SetVisible(false); }
+				else if (tabSelection_ == 7) exitRequested_ = true;
+				else if (menu_ == Menu::SaveStates || menu_ == Menu::Cheats || menu_ == Menu::Settings) sidebarFocused_ = false;
+			}
+			if (pressed & HidNpadButton_B) SetVisible(false);
+			return true;
+		}
+
 		if (menu_ == Menu::Cheats) {
 			if (navUp) {
 				MoveCheatSelectionWrapped(selection_, cheats_, -1);
@@ -1207,10 +1261,7 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 		}
 		if (pressed & HidNpadButton_B) {
 			if (menu_ != Menu::Quick) {
-				menu_ = Menu::Quick;
-				selection_ = 0;
-				settingsSelection_ = 0;
-				animTimer_ = kOverlayAnimDuration;
+				sidebarFocused_ = true;
 			} else {
 				SetVisible(false);
 			}
@@ -1331,20 +1382,17 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 	// The whole overlay uses the same GBAStation 3DS shell.  Sub-pages do not
 	// replace the shell: the active tab stays visible while its rows change.
 	{
-		const float width = std::min(displaySize.x - 72.0f * scale, 1192.0f * scale);
-		const float height = std::min(displaySize.y - 104.0f * scale, 590.0f * scale);
-		const ImVec2 min((displaySize.x - width) * 0.5f, (displaySize.y - height) * 0.5f);
+		const float width = displaySize.x;
+		const float height = displaySize.y;
+		const ImVec2 min(0.0f, 0.0f);
 		const ImVec2 max(min.x + width, min.y + height);
 		const float side = std::min(340.0f * scale, width * 0.34f);
-		const float header = 62.0f * scale;
-		const float tabHeight = (height - header - 22.0f * scale) / 8.0f;
+		const float header = 72.0f * scale;
+		const float tabHeight = (height - header - 24.0f * scale) / 8.0f;
 		const char *tabs[] = {"返回游戏", "保存状态", "读取状态", "金手指", "画面设置", "功能设置", "重置游戏", "退出游戏"};
+		const char *icons[] = {u8"\ue5c4", u8"\ue161", u8"\ue042", u8"\ue87d", u8"\ue3b6", u8"\ue8b8", u8"\ue5d5", u8"\ue8ac"};
 		const char *descriptions[] = {"继续当前游戏。", "创建即时存档。", "读取即时存档。", "管理游戏金手指。", "调整画面比例和缩放。", "调整可即时生效的核心选项。", "重新启动当前游戏。", "返回 GBAStation。"};
-		int active = selection_;
-		if (menu_ == Menu::SaveStates) active = saveStateMode_ == OverlayAction::SaveState ? 1 : 2;
-		else if (menu_ == Menu::Cheats) active = 3;
-		else if (menu_ == Menu::Settings) active = coreSettingsPage_ ? 5 : 4;
-		active = std::clamp(active, 0, 7);
+		const int active = tabSelection_;
 		const ImU32 bg = IM_COL32(9, 13, 23, (int)(158.0f * ease));
 		const ImU32 panel = IM_COL32(19, 25, 40, (int)(178.0f * ease));
 		const ImU32 line = IM_COL32(105, 126, 165, (int)(110.0f * ease));
@@ -1364,20 +1412,27 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 			const bool selected = i == active;
 			if (selected) {
 				drawList->AddRectFilled(rowMin, rowMax, IM_COL32(56, 70, 105, (int)(105.0f * ease)));
-				drawList->AddRect(rowMin, rowMax, IM_COL32(126, 175, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
+				drawList->AddRect(rowMin, rowMax, IM_COL32(86, 169, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
 			}
 			const ImVec2 size = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, tabs[i]);
-			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 22.0f * scale, rowMin.y + (rowMax.y - rowMin.y - size.y) * 0.5f), selected ? text : muted, tabs[i]);
+			const float textY = rowMin.y + (rowMax.y - rowMin.y - size.y) * 0.5f;
+			drawList->AddText(font, labelSize * 1.08f, ImVec2(rowMin.x + 18.0f * scale, textY), selected ? text : muted, icons[i]);
+			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 52.0f * scale, textY), selected ? text : muted, tabs[i]);
 		}
 		const float contentX = min.x + side + 34.0f * scale;
 		const float contentRight = max.x - 34.0f * scale;
-		const float firstRowY = min.y + header + 140.0f * scale;
+		const float firstRowY = min.y + header + 72.0f * scale;
 		drawList->AddText(font, titleSize, ImVec2(contentX, min.y + 18.0f * scale), text, tabs[active]);
 		auto row = [&](int i, bool selected, const std::string &label, const std::string &value) {
-			const ImVec2 rowMin(contentX, firstRowY + i * 58.0f * scale), rowMax(contentRight, firstRowY + (i + 1) * 58.0f * scale - 5.0f * scale);
-			if (selected) drawList->AddRect(rowMin, rowMax, IM_COL32(126, 175, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
-			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 18.0f * scale, rowMin.y + 16.0f * scale), selected ? text : muted, label.c_str());
-			if (!value.empty()) { const ImVec2 size = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, value.c_str()); drawList->AddText(font, labelSize, ImVec2(rowMax.x - size.x - 18.0f * scale, rowMin.y + 16.0f * scale), text, value.c_str()); }
+			const float rowHeight = 52.0f * scale;
+			const ImVec2 rowMin(contentX, firstRowY + i * rowHeight), rowMax(contentRight, firstRowY + (i + 1) * rowHeight - 4.0f * scale);
+			if (selected) {
+				drawList->AddRectFilled(rowMin, rowMax, IM_COL32(48, 61, 92, (int)(150.0f * ease)));
+				drawList->AddRect(rowMin, rowMax, IM_COL32(86, 169, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
+			}
+			const float textY = rowMin.y + (rowMax.y - rowMin.y - font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, label.c_str()).y) * 0.5f;
+			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 18.0f * scale, textY), selected ? text : muted, label.c_str());
+			if (!value.empty()) { const ImVec2 size = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, value.c_str()); drawList->AddText(font, labelSize, ImVec2(rowMax.x - size.x - 18.0f * scale, textY), text, value.c_str()); }
 		};
 		if (menu_ == Menu::SaveStates) {
 			const int firstSlot = std::clamp(selection_ - 5, 0, Ppsspp::SaveStateSlotCount - 6);

@@ -1,12 +1,19 @@
 #include <cerrno>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 extern "C" {
+
+// libnx has no privileged-process environment.  This resolves Mesa's glibc
+// compatibility import without changing the switchVK static library.
+char *secure_getenv(const char *name) {
+    return std::getenv(name);
+}
 
 int regcomp(void *preg, const char *regex, int cflags) {
 	(void)preg;

@@ -96,6 +96,7 @@ private:
 	void DrawStatus(::ImDrawList *drawList, ::ImVec2 displaySize, float scale, float ease, float deltaTime);
 	void DrawRAAlerts(Draw::DrawContext *draw, ::ImDrawList *drawList, ::ImVec2 displaySize, float scale, float deltaTime);
 	void CycleSetting(int direction);
+	void ActivateTab(int tab);
 	void ApplyDisplaySettings(bool save);
 	void LoadSocial(Draw::DrawContext *draw);
 	bool LoadAvatarTextureFromFile(Draw::DrawContext *draw, const char *path);
@@ -114,6 +115,8 @@ private:
 	bool comboDown_ = false;
 	bool exitRequested_ = false;
 	int selection_ = 0;
+	int tabSelection_ = 0;
+	bool sidebarFocused_ = true;
 	int settingsSelection_ = 0;
 	bool coreSettingsPage_ = false;
 	bool coreSettingsChanged_ = false;
