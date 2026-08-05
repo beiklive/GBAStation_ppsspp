@@ -79,6 +79,9 @@ jobs:
         shell: bash
         run: |
           chmod +x build_local.sh build_ppsspp_GBAStation_nro.sh
+          # The container CMake/glslang combination emits OSDependent as a
+          # bare -l dependency.  GCC searches LIBRARY_PATH at link time.
+          LIBRARY_PATH="$GITHUB_WORKSPACE/build_switch_GBAStation/lib${LIBRARY_PATH:+:$LIBRARY_PATH}" \
           SWITCH_NVK_ROOT="${{ steps.switchvk-release.outputs.switch_nvk_root }}" \
             bash build_local.sh --clean -j "$(nproc)"
           test -s GBAStationPPSSPPStub.nro
