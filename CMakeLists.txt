@@ -320,29 +320,28 @@ include_directories(ext/glslang)
 include_directories(ext/glew)
 
 if(USE_LIBNX)
-	find_library(GLESV2_LIBRARY GLESv2 REQUIRED)
-	find_library(GLAPI_LIBRARY glapi REQUIRED)
-	if(SWITCH_VULKAN_LIBRARY)
-		# The packaged switchVK archive contains an ICD dispatch table whose
-		# driver entrypoints are reached indirectly.  Normal archive resolution
-		# drops those objects; mirror switchVK's smoke-NRO link exactly.
-		set(VULKAN_LIBRARY
-			"-Wl,--whole-archive"
-			"${SWITCH_VULKAN_LIBRARY}"
-			"-Wl,--no-whole-archive")
-	else()
-		find_library(VULKAN_LIBRARY vulkan REQUIRED)
-	endif()
-	find_library(DRM_NOUVEAU_LIBRARY drm_nouveau REQUIRED)
-
 	if(SWITCH_VULKAN_ONLY)
-		set(OPENGL_LIBRARIES
-			${GLESV2_LIBRARY}
-			${GLAPI_LIBRARY}
-			${VULKAN_LIBRARY}
-			${DRM_NOUVEAU_LIBRARY}
-		)
+		if(SWITCH_VULKAN_LIBRARY)
+			# The packaged switchVK archive contains an ICD dispatch table whose
+			# driver entrypoints are reached indirectly.
+			set(VULKAN_LIBRARY
+				"-Wl,--whole-archive"
+				"${SWITCH_VULKAN_LIBRARY}"
+				"-Wl,--no-whole-archive")
+			get_filename_component(SWITCH_VULKAN_LIBRARY_DIR "${SWITCH_VULKAN_LIBRARY}" DIRECTORY)
+			get_filename_component(SWITCH_VULKAN_SDK_ROOT "${SWITCH_VULKAN_LIBRARY_DIR}" DIRECTORY)
+			if(EXISTS "${SWITCH_VULKAN_SDK_ROOT}/include/vulkan/vulkan.h")
+				include_directories(SYSTEM "${SWITCH_VULKAN_SDK_ROOT}/include")
+			endif()
+		else()
+			find_library(VULKAN_LIBRARY vulkan REQUIRED)
+		endif()
+		set(OPENGL_LIBRARIES ${VULKAN_LIBRARY})
 	else()
+		find_library(GLESV2_LIBRARY GLESv2 REQUIRED)
+		find_library(GLAPI_LIBRARY glapi REQUIRED)
+		find_library(VULKAN_LIBRARY vulkan REQUIRED)
+		find_library(DRM_NOUVEAU_LIBRARY drm_nouveau REQUIRED)
 		find_library(EGL_LIBRARY EGL REQUIRED)
 		set(OPENGL_LIBRARIES
 			${EGL_LIBRARY}
@@ -3059,38 +3058,9 @@ if(USE_LIBNX)
 	)
 	set_target_properties(GBAStation-ppsspp PROPERTIES OUTPUT_NAME "GBAStationPPSSPPStub")
 	target_link_libraries(GBAStation-ppsspp ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon} minimp3)
-	if(SWITCH_VULKAN_ONLY)
-		set(GBAStation_SWITCHVK_ROOT "${CMAKE_SOURCE_DIR}/../switchVK")
-		if(NOT DEFINED GBAStation_SWITCHVK_MESA_SOURCE)
-			set(GBAStation_SWITCHVK_MESA_SOURCE "${GBAStation_SWITCHVK_ROOT}/.ci-build/nxvk-source")
-			if(NOT EXISTS "${GBAStation_SWITCHVK_MESA_SOURCE}" AND
-			   EXISTS "${GBAStation_SWITCHVK_ROOT}/.ci-build/mesa-26.1.4")
-				set(GBAStation_SWITCHVK_MESA_SOURCE "${GBAStation_SWITCHVK_ROOT}/.ci-build/mesa-26.1.4")
-			endif()
-		endif()
-		set(GBAStation_SWITCHVK_CROSS_INCLUDE "${GBAStation_SWITCHVK_ROOT}/.ci-build/nxvk-cross-include")
-		target_sources(GBAStation-ppsspp PRIVATE
-			"${GBAStation_SWITCHVK_ROOT}/winsys/drm_shim.c"
-			"${GBAStation_SWITCHVK_ROOT}/winsys/switch_libc_shim.c"
-			"${GBAStation_SWITCHVK_ROOT}/winsys/nvk_loaderless_shim.c"
-			"${GBAStation_SWITCHVK_ROOT}/compat/compat.c")
-		target_include_directories(GBAStation-ppsspp PRIVATE
-			"${GBAStation_SWITCHVK_ROOT}/winsys"
-			"${GBAStation_SWITCHVK_ROOT}/compat"
-			"${GBAStation_SWITCHVK_MESA_SOURCE}/src/nouveau/drm")
-		if(EXISTS "${GBAStation_SWITCHVK_CROSS_INCLUDE}")
-			target_include_directories(GBAStation-ppsspp PRIVATE
-				"${GBAStation_SWITCHVK_CROSS_INCLUDE}")
-		elseif(EXISTS "/usr/include/libdrm")
-			target_include_directories(GBAStation-ppsspp PRIVATE /usr/include/libdrm)
-		endif()
-		target_compile_definitions(GBAStation-ppsspp PRIVATE _GNU_SOURCE _DEFAULT_SOURCE)
-		target_compile_options(GBAStation-ppsspp PRIVATE
-			-idirafter "${GBAStation_SWITCHVK_MESA_SOURCE}/include")
-	endif()
 	target_include_directories(GBAStation-ppsspp PRIVATE "${RCHEEVOS_ROOT}/include")
 	target_compile_definitions(GBAStation-ppsspp PRIVATE RC_CLIENT_SUPPORTS_HASH)
-	target_link_options(GBAStation-ppsspp PRIVATE -Wl,--allow-multiple-definition -Wl,-u,vk_icdGetInstanceProcAddr -Wl,--wrap=open -Wl,--wrap=close -Wl,--wrap=stat -Wl,--wrap=lstat -Wl,--wrap=vk_icdGetInstanceProcAddr $<$<CONFIG:Release>:-Wl,--gc-sections>)
+	target_link_options(GBAStation-ppsspp PRIVATE -Wl,--allow-multiple-definition -Wl,-u,vk_icdGetInstanceProcAddr $<$<CONFIG:Release>:-Wl,--gc-sections>)
 	if(CMAKE_STRIP AND CMAKE_BUILD_TYPE MATCHES "^(Release|MinSizeRel)$")
 		add_custom_command(TARGET GBAStation-ppsspp POST_BUILD
 			COMMAND "${CMAKE_STRIP}" --strip-unneeded "$<TARGET_FILE:GBAStation-ppsspp>"
