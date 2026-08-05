@@ -3068,7 +3068,12 @@ if(USE_LIBNX)
 	endif()
 	target_include_directories(GBAStation-ppsspp PRIVATE "${RCHEEVOS_ROOT}/include")
 	target_compile_definitions(GBAStation-ppsspp PRIVATE RC_CLIENT_SUPPORTS_HASH)
-	target_link_options(GBAStation-ppsspp PRIVATE -Wl,--allow-multiple-definition -Wl,-u,vk_icdGetInstanceProcAddr $<$<CONFIG:Release>:-Wl,--gc-sections>)
+	target_link_options(GBAStation-ppsspp PRIVATE
+		-Wl,--allow-multiple-definition
+		-Wl,-u,vk_icdGetInstanceProcAddr
+		"-Wl,-L,${CMAKE_BINARY_DIR}/lib"
+		$<$<CONFIG:Release>:-Wl,--gc-sections>
+	)
 	if(CMAKE_STRIP AND CMAKE_BUILD_TYPE MATCHES "^(Release|MinSizeRel)$")
 		add_custom_command(TARGET GBAStation-ppsspp POST_BUILD
 			COMMAND "${CMAKE_STRIP}" --strip-unneeded "$<TARGET_FILE:GBAStation-ppsspp>"
