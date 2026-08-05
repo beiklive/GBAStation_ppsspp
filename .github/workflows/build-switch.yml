@@ -64,6 +64,26 @@ jobs:
           test "$(sha256sum assets/flash0/font/ltn0.pgf | awk '{print $1}')" = \
             "1184f16bc89bad1fea49093806784470281af54f279b57ef0378ce33e6603870"
 
+      - name: Restore vendored libpng ARM sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          libpng_revision=09b7a626660a8a8a4c6b100518a21a17d0170e83
+          libpng_arm_dir=ext/libpng17/arm
+          mkdir -p "$libpng_arm_dir"
+
+          for source_file in arm_init.c filter_neon.S filter_neon_intrinsics.c neon.h; do
+            git show "${libpng_revision}:${libpng_arm_dir}/${source_file}" > \
+              "${libpng_arm_dir}/${source_file}"
+          done
+
+          printf '%s  %s\n' \
+            'ed6a6b07e3531a02170cc9c26c602a4b17e069d342fa4568d909550dc4778e07' "$libpng_arm_dir/arm_init.c" \
+            '0926d1dcb4897fb80b160742b3b0de6db0c8394357db458de192a7ffa60ff1fc' "$libpng_arm_dir/filter_neon.S" \
+            'f612d00ff2a12f4d1a754ba8339ccaf2d49336cd2e238b159d70a6fd62f941e3' "$libpng_arm_dir/filter_neon_intrinsics.c" \
+            '67ed834500ce57e42fd6ff0443236b72139cd71311369132e7d2eaa1d6e1e21c' "$libpng_arm_dir/neon.h" | \
+            sha256sum --check --strict
+
       - name: Build release NRO
         shell: bash
         run: |
