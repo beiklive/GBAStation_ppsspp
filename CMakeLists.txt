@@ -3061,6 +3061,11 @@ if(USE_LIBNX)
 	)
 	set_target_properties(GBAStation-ppsspp PROPERTIES OUTPUT_NAME "GBAStationPPSSPPStub")
 	target_link_libraries(GBAStation-ppsspp ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon} minimp3)
+	if(SWITCH_VULKAN_ONLY)
+		# glslang exposes OSDependent as a bare -l dependency on the Switch
+		# toolchain. Its generated archive is placed in CMake's output lib dir.
+		target_link_directories(GBAStation-ppsspp PRIVATE "${CMAKE_BINARY_DIR}/lib")
+	endif()
 	target_include_directories(GBAStation-ppsspp PRIVATE "${RCHEEVOS_ROOT}/include")
 	target_compile_definitions(GBAStation-ppsspp PRIVATE RC_CLIENT_SUPPORTS_HASH)
 	target_link_options(GBAStation-ppsspp PRIVATE -Wl,--allow-multiple-definition -Wl,-u,vk_icdGetInstanceProcAddr $<$<CONFIG:Release>:-Wl,--gc-sections>)
