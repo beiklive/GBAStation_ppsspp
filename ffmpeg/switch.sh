@@ -85,7 +85,7 @@ export TMP="${TMPDIR}"
 export TEMP="${TMPDIR}"
 mkdir -p "${TMPDIR}"
 
-./configure \
+bash ./configure \
 --prefix="${FFMPEG_SWITCH_PREFIX}" \
 ${GENERAL} \
 --extra-cflags='-g -D__SWITCH__ -D_GNU_SOURCE -O3 -march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIE -pie -ffunction-sections -fdata-sections -ftls-model=local-exec' \
