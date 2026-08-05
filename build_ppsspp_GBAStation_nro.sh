@@ -69,7 +69,7 @@ if [ "${ffmpeg_missing}" -ne 0 ]; then
 	echo "FFmpeg Switch libraries missing; building ${FFMPEG_SWITCH_DIR}..."
 	(
 		cd "${SCRIPT_DIR}/ffmpeg"
-		FFMPEG_SWITCH_PREFIX="${FFMPEG_SWITCH_DIR}" ./switch.sh
+		FFMPEG_SWITCH_PREFIX="${FFMPEG_SWITCH_DIR}" bash ./switch.sh
 	)
 fi
 
