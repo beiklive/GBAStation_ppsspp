@@ -2661,7 +2661,10 @@ list(APPEND CoreExtraLibs armips)
 set(GlslangLibs glslang OGLCompiler SPIRV spirv-cross-glsl)
 
 if(TARGET OSDependent)
-	list(APPEND GlslangLibs OSDependent)
+	# Resolve the generated archive explicitly.  Recent CMake releases used by
+	# the container otherwise turn this target into -lOSDependent, which is not
+	# in the Switch linker search path.
+	list(APPEND GlslangLibs "$<TARGET_FILE:OSDependent>")
 endif()
 
 if (ENABLE_SPVREMAPPER)
