@@ -86,8 +86,8 @@ export TEMP="${TMPDIR}"
 mkdir -p "${TMPDIR}"
 
 # GitHub checkouts can lose the executable mode of FFmpeg's helper scripts.
-# The generated Makefiles invoke several of them directly.
-find . -type f -name '*.sh' -exec chmod +x {} +
+# The generated Makefiles invoke version.sh directly, so include it explicitly.
+find . -type f \( -name '*.sh' -o -name 'version.sh' \) -exec chmod +x {} +
 
 bash ./configure \
 --prefix="${FFMPEG_SWITCH_PREFIX}" \
