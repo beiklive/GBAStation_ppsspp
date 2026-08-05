@@ -83,6 +83,19 @@ mkdir -p "${BUILD_DIR}"
 if command -v git >/dev/null 2>&1 && [ -d "${SCRIPT_DIR}/.git" ]; then
 	export GIT_CONFIG_GLOBAL="${BUILD_DIR}/gitconfig"
 	git config --global --add safe.directory "${SCRIPT_DIR}" || true
+	AEMU_POSTOFFICE_DIR="${SCRIPT_DIR}/ext/aemu_postoffice"
+	AEMU_POSTOFFICE_PATCH="${SCRIPT_DIR}/gitPatches/ext_aemu_postoffice.patch"
+	if [ -f "${AEMU_POSTOFFICE_PATCH}" ] && [ -d "${AEMU_POSTOFFICE_DIR}" ]; then
+		git config --global --add safe.directory "${AEMU_POSTOFFICE_DIR}" || true
+		AEMU_SOCKET_HEADER="${AEMU_POSTOFFICE_DIR}/client/sock_impl.h"
+		if grep -Fq 'defined(__SWITCH__)' "${AEMU_SOCKET_HEADER}"; then
+			echo "aemu_postoffice Switch socket patch already applied."
+		else
+			git -C "${AEMU_POSTOFFICE_DIR}" apply --check "${AEMU_POSTOFFICE_PATCH}"
+			git -C "${AEMU_POSTOFFICE_DIR}" apply "${AEMU_POSTOFFICE_PATCH}"
+			echo "Applied aemu_postoffice Switch socket patch."
+		fi
+	fi
 fi
 
 if [ -z "${PYTHON_EXECUTABLE:-}" ]; then
