@@ -73,17 +73,14 @@ jobs:
           mkdir -p "$libpng_arm_dir"
 
           for source_file in arm_init.c filter_neon.S filter_neon_intrinsics.c neon.h; do
+            expected_blob="$(git -c safe.directory="$GITHUB_WORKSPACE" rev-parse \
+              "${libpng_revision}:${libpng_arm_dir}/${source_file}")"
             git -c safe.directory="$GITHUB_WORKSPACE" show \
               "${libpng_revision}:${libpng_arm_dir}/${source_file}" > \
               "${libpng_arm_dir}/${source_file}"
+            test "$(git -c safe.directory="$GITHUB_WORKSPACE" hash-object \
+              "${libpng_arm_dir}/${source_file}")" = "$expected_blob"
           done
-
-          printf '%s  %s\n' \
-            'ed6a6b07e3531a02170cc9c26c602a4b17e069d342fa4568d909550dc4778e07' "$libpng_arm_dir/arm_init.c" \
-            '0926d1dcb4897fb80b160742b3b0de6db0c8394357db458de192a7ffa60ff1fc' "$libpng_arm_dir/filter_neon.S" \
-            'f612d00ff2a12f4d1a754ba8339ccaf2d49336cd2e238b159d70a6fd62f941e3' "$libpng_arm_dir/filter_neon_intrinsics.c" \
-            '67ed834500ce57e42fd6ff0443236b72139cd71311369132e7d2eaa1d6e1e21c' "$libpng_arm_dir/neon.h" | \
-            sha256sum --check --strict
 
       - name: Build release NRO
         shell: bash
