@@ -42,6 +42,22 @@ jobs:
           MESA_26_1_4_PACKAGE="$GITHUB_WORKSPACE/../switchVK/nvk-switch-26.1.4" \
             bash "$GITHUB_WORKSPACE/../switchVK/ci/build-sdk-linux.sh"
 
+      - name: Prepare switchVK cross DRM headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          cross_include="$GITHUB_WORKSPACE/../switchVK/.ci-build/nxvk-cross-include"
+          if [[ ! -f "$cross_include/xf86drm.h" ]]; then
+            test -f /usr/include/xf86drm.h
+            test -d /usr/include/libdrm
+            install -d "$cross_include" "$cross_include/libdrm"
+            cp -a /usr/include/xf86drm*.h "$cross_include/"
+            cp -a /usr/include/libdrm/. "$cross_include/"
+            cp -a /usr/include/libdrm/. "$cross_include/libdrm/"
+          fi
+          test -s "$cross_include/xf86drm.h"
+          test -s "$cross_include/drm.h"
+
       - name: Prepare PPSSPP flash0 assets
         shell: bash
         run: |
