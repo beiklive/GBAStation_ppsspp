@@ -42,6 +42,28 @@ jobs:
           MESA_26_1_4_PACKAGE="$GITHUB_WORKSPACE/../switchVK/nvk-switch-26.1.4" \
             bash "$GITHUB_WORKSPACE/../switchVK/ci/build-sdk-linux.sh"
 
+      - name: Prepare PPSSPP flash0 assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          assets_commit=0f19aedc143be21a954231370e3a02ce03088994
+          assets_archive="$RUNNER_TEMP/ppsspp-assets-${assets_commit}.tar.gz"
+          assets_extract="$RUNNER_TEMP/ppsspp-assets-${assets_commit}"
+
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://codeload.github.com/BadCaseDotOrg/PPSSPP_Assets/tar.gz/${assets_commit}" \
+            --output "$assets_archive"
+          mkdir -p "$assets_extract"
+          tar -xzf "$assets_archive" -C "$assets_extract"
+
+          flash0_source="$(find "$assets_extract" -type d -path '*/flash0' -print -quit)"
+          test -n "$flash0_source"
+          test -s "$flash0_source/font/ltn0.pgf"
+          install -d assets
+          cp -a "$flash0_source" assets/flash0
+          test "$(sha256sum assets/flash0/font/ltn0.pgf | awk '{print $1}')" = \
+            "1184f16bc89bad1fea49093806784470281af54f279b57ef0378ce33e6603870"
+
       - name: Build release NRO
         shell: bash
         run: |
