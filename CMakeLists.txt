@@ -3061,7 +3061,13 @@ if(USE_LIBNX)
 	target_link_libraries(GBAStation-ppsspp ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${LinkCommon} minimp3)
 	if(SWITCH_VULKAN_ONLY)
 		set(GBAStation_SWITCHVK_ROOT "${CMAKE_SOURCE_DIR}/../switchVK")
-		set(GBAStation_SWITCHVK_MESA_SOURCE "${GBAStation_SWITCHVK_ROOT}/.ci-build/nxvk-source")
+		if(NOT DEFINED GBAStation_SWITCHVK_MESA_SOURCE)
+			set(GBAStation_SWITCHVK_MESA_SOURCE "${GBAStation_SWITCHVK_ROOT}/.ci-build/nxvk-source")
+			if(NOT EXISTS "${GBAStation_SWITCHVK_MESA_SOURCE}" AND
+			   EXISTS "${GBAStation_SWITCHVK_ROOT}/.ci-build/mesa-26.1.4")
+				set(GBAStation_SWITCHVK_MESA_SOURCE "${GBAStation_SWITCHVK_ROOT}/.ci-build/mesa-26.1.4")
+			endif()
+		endif()
 		set(GBAStation_SWITCHVK_CROSS_INCLUDE "${GBAStation_SWITCHVK_ROOT}/.ci-build/nxvk-cross-include")
 		target_sources(GBAStation-ppsspp PRIVATE
 			"${GBAStation_SWITCHVK_ROOT}/winsys/drm_shim.c"
@@ -3071,8 +3077,13 @@ if(USE_LIBNX)
 		target_include_directories(GBAStation-ppsspp PRIVATE
 			"${GBAStation_SWITCHVK_ROOT}/winsys"
 			"${GBAStation_SWITCHVK_ROOT}/compat"
-			"${GBAStation_SWITCHVK_CROSS_INCLUDE}"
 			"${GBAStation_SWITCHVK_MESA_SOURCE}/src/nouveau/drm")
+		if(EXISTS "${GBAStation_SWITCHVK_CROSS_INCLUDE}")
+			target_include_directories(GBAStation-ppsspp PRIVATE
+				"${GBAStation_SWITCHVK_CROSS_INCLUDE}")
+		elseif(EXISTS "/usr/include/libdrm")
+			target_include_directories(GBAStation-ppsspp PRIVATE /usr/include/libdrm)
+		endif()
 		target_compile_definitions(GBAStation-ppsspp PRIVATE _GNU_SOURCE _DEFAULT_SOURCE)
 		target_compile_options(GBAStation-ppsspp PRIVATE
 			-idirafter "${GBAStation_SWITCHVK_MESA_SOURCE}/include")
