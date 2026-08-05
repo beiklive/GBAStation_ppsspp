@@ -73,7 +73,8 @@ jobs:
           mkdir -p "$libpng_arm_dir"
 
           for source_file in arm_init.c filter_neon.S filter_neon_intrinsics.c neon.h; do
-            git show "${libpng_revision}:${libpng_arm_dir}/${source_file}" > \
+            git -c safe.directory="$GITHUB_WORKSPACE" show \
+              "${libpng_revision}:${libpng_arm_dir}/${source_file}" > \
               "${libpng_arm_dir}/${source_file}"
           done
 
