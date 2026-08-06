@@ -3065,6 +3065,11 @@ if(USE_LIBNX)
 		# glslang exposes OSDependent as a bare -l dependency on the Switch
 		# toolchain. Its generated archive is placed in CMake's output lib dir.
 		target_link_directories(GBAStation-ppsspp PRIVATE "${CMAKE_BINARY_DIR}/lib")
+		if(TARGET OSDependent)
+			# A static Core archive does not retain this build dependency.  Make
+			# the final NRO wait for the glslang archive before it resolves -l.
+			add_dependencies(GBAStation-ppsspp OSDependent)
+		endif()
 	endif()
 	target_include_directories(GBAStation-ppsspp PRIVATE "${RCHEEVOS_ROOT}/include")
 	target_compile_definitions(GBAStation-ppsspp PRIVATE RC_CLIENT_SUPPORTS_HASH)
