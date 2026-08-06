@@ -2,6 +2,8 @@
 
 #include "ext/minimp3/minimp3_ex.h"
 
+#include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -61,6 +63,8 @@ bool AudioSfx::Load(LogCallback log) {
 	log_ = std::move(log);
 	Shutdown();
 
+	SynthesizeUiSounds();
+
 	if (LoadMp3File("romfs:/assets/trophy.mp3")) {
 		LogMessage(log_, "GBAStation sfx loaded romfs:/assets/trophy.mp3 rate=%d channels=%d samples=%zu",
 			trophySampleRate_, trophyChannels_, trophySamples_.size());
@@ -83,6 +87,47 @@ void AudioSfx::Shutdown() {
 	trophySampleRate_ = 0;
 	trophyCursor_ = 0.0;
 	trophyPlaying_ = false;
+	uiSamples_[0].clear();
+	uiSamples_[1].clear();
+	uiSamples_[2].clear();
+	uiSampleRate_ = 0;
+	uiCursor_ = 0.0;
+	uiPlaying_ = false;
+	uiSound_ = 0;
+}
+
+void AudioSfx::SynthesizeUiSounds() {
+	// Synthesized UI ticks in the style of the 3DS frontend: a short sine burst
+	// with a fast decay.  Focus is a soft tick, confirm slightly brighter and
+	// longer, cancel a lower dip.
+	constexpr float kFreqs[3] = {1320.0f, 1760.0f, 880.0f};
+	constexpr float kDurations[3] = {0.035f, 0.055f, 0.045f};
+	constexpr float kVolumes[3] = {0.22f, 0.26f, 0.22f};
+	const int rate = 48000;
+	for (int s = 0; s < 3; ++s) {
+		uiSamples_[s].clear();
+		const int count = (int)(kDurations[s] * (float)rate);
+		uiSamples_[s].reserve((size_t)count * 2);
+		for (int i = 0; i < count; ++i) {
+			const float t = (float)i / (float)rate;
+			const float env = std::exp(-t * 55.0f);
+			const float v = std::sin(6.2831853f * kFreqs[s] * t) * kVolumes[s] * env;
+			const s16 sample = (s16)std::clamp((int)(v * 32767.0f), -32768, 32767);
+			uiSamples_[s].push_back(sample);
+			uiSamples_[s].push_back(sample);
+		}
+	}
+	uiSampleRate_ = rate;
+}
+
+void AudioSfx::PlayUiSound(UiSound sound) {
+	std::lock_guard<std::mutex> lock(mutex_);
+	if (uiSampleRate_ <= 0 || uiSamples_[(int)sound].empty()) {
+		return;
+	}
+	uiCursor_ = 0.0;
+	uiPlaying_ = true;
+	uiSound_ = (int)sound;
 }
 
 void AudioSfx::PlayTrophy() {
@@ -100,28 +145,52 @@ void AudioSfx::Mix(s16 *output, int frames, int outputRate) {
 	}
 
 	std::lock_guard<std::mutex> lock(mutex_);
-	if (!trophyPlaying_ || trophySamples_.empty() || trophyChannels_ <= 0 || trophySampleRate_ <= 0) {
+	const bool trophyActive = trophyPlaying_ && !trophySamples_.empty() &&
+		trophyChannels_ > 0 && trophySampleRate_ > 0;
+	const bool uiActive = uiPlaying_ && uiSampleRate_ > 0 &&
+		(int)uiSound_ >= 0 && (int)uiSound_ < 3 && !uiSamples_[uiSound_].empty();
+	if (!trophyActive && !uiActive) {
 		return;
 	}
 
-	const int totalFrames = (int)trophySamples_.size() / trophyChannels_;
-	const double step = (double)trophySampleRate_ / (double)outputRate;
+	const int totalTrophyFrames = trophyActive ? (int)trophySamples_.size() / trophyChannels_ : 0;
+	const double trophyStep = trophyActive ? (double)trophySampleRate_ / (double)outputRate : 1.0;
+	const int totalUiFrames = uiActive ? (int)uiSamples_[uiSound_].size() / 2 : 0;
+	const double uiStep = uiActive ? (double)uiSampleRate_ / (double)outputRate : 1.0;
 	for (int i = 0; i < frames; ++i) {
-		const int sourceFrame = (int)trophyCursor_;
-		if (sourceFrame >= totalFrames) {
-			trophyPlaying_ = false;
-			trophyCursor_ = 0.0;
-			break;
+		int mixedLeft = output[i * 2];
+		int mixedRight = output[i * 2 + 1];
+
+		if (trophyActive) {
+			const int sourceFrame = (int)trophyCursor_;
+			if (sourceFrame >= totalTrophyFrames) {
+				trophyPlaying_ = false;
+				trophyCursor_ = 0.0;
+			} else {
+				const int sourceIndex = sourceFrame * trophyChannels_;
+				const int left = trophySamples_[sourceIndex];
+				const int right = trophyChannels_ > 1 ? trophySamples_[sourceIndex + 1] : left;
+				mixedLeft += (int)((float)left * kTrophyVolume);
+				mixedRight += (int)((float)right * kTrophyVolume);
+				trophyCursor_ += trophyStep;
+			}
 		}
 
-		const int sourceIndex = sourceFrame * trophyChannels_;
-		const int left = trophySamples_[sourceIndex];
-		const int right = trophyChannels_ > 1 ? trophySamples_[sourceIndex + 1] : left;
-		const int mixedLeft = output[i * 2] + (int)((float)left * kTrophyVolume);
-		const int mixedRight = output[i * 2 + 1] + (int)((float)right * kTrophyVolume);
+		if (uiActive) {
+			const int sourceFrame = (int)uiCursor_;
+			if (sourceFrame >= totalUiFrames) {
+				uiPlaying_ = false;
+				uiCursor_ = 0.0;
+			} else {
+				const int sourceIndex = sourceFrame * 2;
+				mixedLeft += uiSamples_[uiSound_][sourceIndex];
+				mixedRight += uiSamples_[uiSound_][sourceIndex + 1];
+				uiCursor_ += uiStep;
+			}
+		}
+
 		output[i * 2] = Clamp16(mixedLeft);
 		output[i * 2 + 1] = Clamp16(mixedRight);
-		trophyCursor_ += step;
 	}
 }
 

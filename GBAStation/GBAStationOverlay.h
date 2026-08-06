@@ -96,6 +96,9 @@ private:
 	void ApplyDisplaySettings(bool save);
 	Draw::Texture *LoadRAIconTexture(Draw::DrawContext *draw);
 	void ReleaseRAIconTexture();
+	void LoadFocusTexture(Draw::DrawContext *draw);
+	void ReleaseFocusTexture();
+	void DrawFlowBorder(::ImDrawList *drawList, float x, float y, float w, float h, float thickness);
 	void ExecuteSelection();
 
 	LogCallback log_;
@@ -129,6 +132,7 @@ private:
 	float animTimer_ = 0.0f;
 	std::string title_;
 	Draw::Texture *raIconTexture_ = nullptr;
+	Draw::Texture *focusTexture_ = nullptr;
 	ImGuiContext *context_ = nullptr;
 };
 

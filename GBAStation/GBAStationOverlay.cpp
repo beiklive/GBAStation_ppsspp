@@ -1,5 +1,6 @@
 #include "GBAStationOverlay.h"
 
+#include "GBAStationAudioSfx.h"
 #include "GBAStationConfig.h"
 #include "GBAStationRetroAchievements.h"
 #include "GBAStationTranslationManager.h"
@@ -7,6 +8,7 @@
 #include "Core/Config.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Math/lin/matrix4x4.h"
+#include "Common/Render/ManagedTexture.h"
 #include "Common/System/Display.h"
 #include "ext/imgui/imgui.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
@@ -28,7 +30,6 @@ namespace GBAStation {
 namespace {
 
 constexpr float kOverlayAnimDuration = 0.4f;
-constexpr float kQuickMenuWidth = 400.0f;
 
 struct QuickMenuItem {
 	const char *labelKey;
@@ -203,14 +204,20 @@ float EaseOutCubic(float t) {
 	return 1.0f - std::pow(1.0f - t, 3.0f);
 }
 
-void DrawSwitchButtonPrompt(ImDrawList *drawList, ImFont *font, float fontSize, ImVec2 center, float size, const char *symbol, float alpha) {
-	const ImU32 fillColor = IM_COL32(220, 220, 220, (int)(255.0f * alpha));
-	const ImU32 textColor = IM_COL32(40, 40, 40, (int)(255.0f * alpha));
-	drawList->AddCircleFilled(center, size * 0.5f, fillColor, 12);
-
-	const float symbolSize = fontSize * 0.75f;
-	const ImVec2 textSize = font->CalcTextSizeA(symbolSize, 10000.0f, 0.0f, symbol);
-	drawList->AddText(font, symbolSize, ImVec2(center.x - textSize.x * 0.5f, center.y - textSize.y * 0.5f), textColor, symbol);
+void EncodeUtf8(char *out, int codepoint) {
+	if (codepoint <= 0x7F) {
+		out[0] = (char)codepoint;
+		out[1] = '\0';
+	} else if (codepoint <= 0x7FF) {
+		out[0] = (char)(0xC0 | (codepoint >> 6));
+		out[1] = (char)(0x80 | (codepoint & 0x3F));
+		out[2] = '\0';
+	} else {
+		out[0] = (char)(0xE0 | (codepoint >> 12));
+		out[1] = (char)(0x80 | ((codepoint >> 6) & 0x3F));
+		out[2] = (char)(0x80 | (codepoint & 0x3F));
+		out[3] = '\0';
+	}
 }
 
 DisplaySize CycleDisplaySize(DisplaySize current, const DisplaySize *sizes, int count, int direction) {
@@ -448,6 +455,7 @@ bool Overlay::Init(Draw::DrawContext *draw, const char *gamePath, LogCallback lo
 
 	title_ = GameTitleFromPath(gamePath);
 	displaySettings_ = LoadPpssppDisplaySettings(log_);
+	LoadFocusTexture(draw);
 	ready_ = true;
 	LogMessage(log_, "GBAStation overlay initialized title=%s", title_.c_str());
 	return true;
@@ -516,6 +524,76 @@ void Overlay::ReleaseRAIconTexture() {
 	}
 }
 
+void Overlay::LoadFocusTexture(Draw::DrawContext *draw) {
+	if (focusTexture_ || !draw) {
+		return;
+	}
+	const char *const focusPaths[] = {
+		"romfs:/assets/ui/border_gradient.png",
+		"sdmc:/GBAStation/PSP/assets/ui/border_gradient.png",
+	};
+	for (const char *path : focusPaths) {
+		std::vector<unsigned char> pngData;
+		if (!ReadFileBytes(path, &pngData)) {
+			continue;
+		}
+		Draw::Texture *texture = CreateTextureFromFileData(draw, pngData.data(), pngData.size(),
+			ImageFileType::PNG, false, path);
+		if (texture) {
+			focusTexture_ = texture;
+			LogMessage(log_, "GBAStation overlay focus texture loaded path=%s", path);
+			return;
+		}
+	}
+	LogMessage(log_, "GBAStation overlay focus texture not found");
+}
+
+void Overlay::ReleaseFocusTexture() {
+	if (focusTexture_) {
+		focusTexture_->Release();
+		focusTexture_ = nullptr;
+	}
+}
+
+void Overlay::DrawFlowBorder(ImDrawList *drawList, float x, float y, float w, float h, float thickness) {
+	if (!focusTexture_) {
+		drawList->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(79, 179, 255, 255), 0.0f, 0, 2.0f);
+		return;
+	}
+	const float borderWidth = std::max(4.0f, thickness * 2.0f);
+	const double milliseconds = (double)CurrentTimeMs();
+	float uv = (float)std::fmod(milliseconds / 3600.0, 1.0);
+	const float topLength = w + borderWidth * 2.0f;
+	const float sideLength = h;
+	const float advance = 1.0f / 256.0f;
+	// uv spans the full gradient row (0..1); each border strip samples a
+	// contiguous window so the highlight travels around the rectangle.
+	const ImTextureID tex = ImGui_ImplThin3d_AddTextureTemp(focusTexture_);
+	float next = uv + topLength * advance;
+	const ImVec2 topMin(x - borderWidth, y - borderWidth);
+	const ImVec2 topMax(x + w + borderWidth, y);
+	drawList->AddImage(tex, topMin, topMax,
+		ImVec2(uv, 0.0f), ImVec2(next, 1.0f));
+	uv = next;
+	next = uv + sideLength * advance;
+	const ImVec2 rightMin(x + w, y);
+	const ImVec2 rightMax(x + w + borderWidth, y + h);
+	drawList->AddImage(tex, rightMin, rightMax,
+		ImVec2(uv, 0.0f), ImVec2(next, 1.0f));
+	uv = next;
+	next = uv + topLength * advance;
+	const ImVec2 bottomMin(x - borderWidth, y + h);
+	const ImVec2 bottomMax(x + w + borderWidth, y + h + borderWidth);
+	drawList->AddImage(tex, bottomMin, bottomMax,
+		ImVec2(next, 0.0f), ImVec2(uv, 1.0f));
+	uv = next;
+	next = uv + sideLength * advance;
+	const ImVec2 leftMin(x - borderWidth, y);
+	const ImVec2 leftMax(x, y + h);
+	drawList->AddImage(tex, leftMin, leftMax,
+		ImVec2(next, 0.0f), ImVec2(uv, 1.0f));
+}
+
 void Overlay::Shutdown() {
 	if (!ready_ && !context_) {
 		return;
@@ -525,6 +603,7 @@ void Overlay::Shutdown() {
 		ImGui::SetCurrentContext(context_);
 	}
 	ReleaseRAIconTexture();
+	ReleaseFocusTexture();
 	if (ready_) {
 		ImGui_ImplThin3d_Shutdown();
 	}
@@ -698,7 +777,7 @@ int Overlay::ItemCount() const {
 	if (menu_ == Menu::Cheats) {
 		return std::max(1, (int)cheats_.size());
 	}
-	return coreSettingsPage_ ? 10 : 2;
+	return coreSettingsPage_ ? 9 : 3;
 }
 
 void Overlay::ApplyDisplaySettings(bool save) {
@@ -716,23 +795,29 @@ void Overlay::CycleSetting(int direction) {
 
 	if (coreSettingsPage_) {
 		switch (settingsSelection_) {
-		case 0: g_Config.iInternalResolution = std::clamp(g_Config.iInternalResolution + direction, 0, 5); break;
-		case 1: g_Config.iFrameSkip = (g_Config.iFrameSkip + direction + 6) % 6; break;
-		case 2: g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip; break;
-		case 3: g_Config.bFastMemory = !g_Config.bFastMemory; break;
-		case 4: g_Config.bHardwareTransform = !g_Config.bHardwareTransform; break;
-		case 5: g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects; break;
-		case 6: g_Config.bVSync = !g_Config.bVSync; break;
-		case 7: g_Config.iTexFiltering = g_Config.iTexFiltering >= 4 ? 1 : g_Config.iTexFiltering + 1; break;
-		case 8: g_Config.iAnisotropyLevel = (g_Config.iAnisotropyLevel + direction + 5) % 5; break;
-		case 9: g_Config.bTexDeposterize = !g_Config.bTexDeposterize; break;
+		case 0: g_Config.iFrameSkip = (g_Config.iFrameSkip + direction + 6) % 6; break;
+		case 1: g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip; break;
+		case 2: g_Config.bFastMemory = !g_Config.bFastMemory; break;
+		case 3: g_Config.bHardwareTransform = !g_Config.bHardwareTransform; break;
+		case 4: g_Config.bSkipBufferEffects = !g_Config.bSkipBufferEffects; break;
+		case 5: g_Config.bVSync = !g_Config.bVSync; break;
+		case 6: g_Config.iTexFiltering = g_Config.iTexFiltering >= 4 ? 1 : g_Config.iTexFiltering + 1; break;
+		case 7: g_Config.iAnisotropyLevel = (g_Config.iAnisotropyLevel + direction + 5) % 5; break;
+		case 8: g_Config.bTexDeposterize = !g_Config.bTexDeposterize; break;
 		default: break;
 		}
 		coreSettingsChanged_ = true;
 		return;
 	}
-	displaySettings_ = NormalizePpssppDisplaySettingsForCurrentMode(displaySettings_);
+	// 画面设置 page: 渲染分辨率 (core setting, needs render resize), then
+	// display mode / size.
 	if (settingsSelection_ == 0) {
+		g_Config.iInternalResolution = std::clamp(g_Config.iInternalResolution + direction, 0, 5);
+		coreSettingsChanged_ = true;
+		return;
+	}
+	displaySettings_ = NormalizePpssppDisplaySettingsForCurrentMode(displaySettings_);
+	if (settingsSelection_ == 1) {
 		displaySettings_.mode = displaySettings_.mode == DisplayMode::Integer ? DisplayMode::Display : DisplayMode::Integer;
 		displaySettings_.size = displaySettings_.mode == DisplayMode::Integer ? DisplaySize::Auto : DisplaySize::_16_9;
 	} else {
@@ -895,51 +980,69 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 		}
 
 		if (sidebarFocused_) {
-			if (navUp) ActivateTab((tabSelection_ + 7) % 8);
-			if (navDown) ActivateTab((tabSelection_ + 1) % 8);
-			if (navRight && (menu_ == Menu::SaveStates || menu_ == Menu::Cheats || menu_ == Menu::Settings)) sidebarFocused_ = false;
-			if (pressed & HidNpadButton_A) {
-				if (tabSelection_ == 0) SetVisible(false);
-				else if (tabSelection_ == 6) { pendingCommand_ = { OverlayAction::Reset, 0 }; SetVisible(false); }
-				else if (tabSelection_ == 7) exitRequested_ = true;
-				else if (menu_ == Menu::SaveStates || menu_ == Menu::Cheats || menu_ == Menu::Settings) sidebarFocused_ = false;
+			if (navUp) { ActivateTab((tabSelection_ + 7) % 8); TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus); }
+			if (navDown) { ActivateTab((tabSelection_ + 1) % 8); TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus); }
+			if (navRight && (menu_ == Menu::SaveStates || menu_ == Menu::Cheats || menu_ == Menu::Settings)) {
+				sidebarFocused_ = false;
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
-			if (pressed & HidNpadButton_B) SetVisible(false);
+			if (pressed & HidNpadButton_A) {
+				if (tabSelection_ == 0) { SetVisible(false); TrophySfx().PlayUiSound(AudioSfx::UiSound::Confirm); }
+				else if (tabSelection_ == 6) { pendingCommand_ = { OverlayAction::Reset, 0 }; SetVisible(false); TrophySfx().PlayUiSound(AudioSfx::UiSound::Confirm); }
+				else if (tabSelection_ == 7) { exitRequested_ = true; TrophySfx().PlayUiSound(AudioSfx::UiSound::Confirm); }
+				else if (menu_ == Menu::SaveStates || menu_ == Menu::Cheats || menu_ == Menu::Settings) {
+					sidebarFocused_ = false;
+					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				}
+			}
+			if (pressed & HidNpadButton_B) {
+				SetVisible(false);
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Cancel);
+			}
 			return true;
 		}
 
 		if (menu_ == Menu::Cheats) {
 			if (navUp) {
 				MoveCheatSelectionWrapped(selection_, cheats_, -1);
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 			if (navDown) {
 				MoveCheatSelectionWrapped(selection_, cheats_, 1);
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 			if (navLeft) {
 				MoveCheatSelectionWrapped(selection_, cheats_, -kCheatPageStep);
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 			if (navRight) {
 				MoveCheatSelectionWrapped(selection_, cheats_, kCheatPageStep);
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 		} else {
 			if (navUp && itemCount > 0) {
 				selection_ = (selection_ + itemCount - 1) % itemCount;
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 			if (navDown && itemCount > 0) {
 				selection_ = (selection_ + 1) % itemCount;
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 		}
 		if (menu_ == Menu::Settings) {
 			settingsSelection_ = selection_;
 			if (navLeft) {
 				CycleSetting(-1);
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 			if (navRight) {
 				CycleSetting(1);
+				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 		}
 		if (pressed & HidNpadButton_A) {
 			ExecuteSelection();
+			TrophySfx().PlayUiSound(AudioSfx::UiSound::Confirm);
 		}
 		if (menu_ == Menu::Quick && (pressed & HidNpadButton_Minus) && !(buttons & HidNpadButton_Plus)) {
 			pendingCommand_ = { OverlayAction::Reset, 0 };
@@ -952,6 +1055,7 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 			} else {
 				SetVisible(false);
 			}
+			TrophySfx().PlayUiSound(AudioSfx::UiSound::Cancel);
 		}
 	}
 
@@ -977,166 +1081,252 @@ void Overlay::DrawBackground(ImDrawList *drawList, ImVec2 displaySize, float eas
 }
 
 void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease) {
-	// The whole overlay uses the same GBAStation 3DS shell.  Sub-pages do not
-	// replace the shell: the active tab stays visible while its rows change.
-	{
-		const float width = displaySize.x;
-		const float height = displaySize.y;
-		const ImVec2 min(0.0f, 0.0f);
-		const ImVec2 max(min.x + width, min.y + height);
-		const float side = std::min(340.0f * scale, width * 0.34f);
-		const float header = 72.0f * scale;
-		const float tabHeight = (height - header - 24.0f * scale) / 8.0f;
-		const char *tabs[] = {"返回游戏", "保存状态", "读取状态", "金手指", "画面设置", "功能设置", "重置游戏", "退出游戏"};
-		const char *icons[] = {u8"\ue5c4", u8"\ue161", u8"\ue042", u8"\ue87d", u8"\ue3b6", u8"\ue8b8", u8"\ue5d5", u8"\ue8ac"};
-		const char *descriptions[] = {"继续当前游戏。", "创建即时存档。", "读取即时存档。", "管理游戏金手指。", "调整画面比例和缩放。", "调整可即时生效的核心选项。", "重新启动当前游戏。", "返回 GBAStation。"};
-		const int active = tabSelection_;
-		const ImU32 bg = IM_COL32(9, 13, 23, (int)(158.0f * ease));
-		const ImU32 panel = IM_COL32(19, 25, 40, (int)(178.0f * ease));
-		const ImU32 line = IM_COL32(105, 126, 165, (int)(110.0f * ease));
-		const ImU32 text = IM_COL32(243, 247, 255, (int)(255.0f * ease));
-		const ImU32 muted = IM_COL32(178, 190, 213, (int)(240.0f * ease));
-		ImFont *font = ImGui::GetFont();
-		const float titleSize = ImGui::GetFontSize() * 1.08f;
-		const float labelSize = ImGui::GetFontSize() * 0.84f;
-		drawList->AddRectFilled(min, max, bg);
-		drawList->AddRectFilled(ImVec2(min.x, min.y + header), ImVec2(min.x + side, max.y), panel);
-		drawList->AddLine(ImVec2(min.x + side, min.y + header), ImVec2(min.x + side, max.y), line);
-		drawList->AddLine(ImVec2(min.x, min.y + header), ImVec2(max.x, min.y + header), line);
-		drawList->AddText(font, titleSize, ImVec2(min.x + 28.0f * scale, min.y + 17.0f * scale), text, "游戏菜单");
-		for (int i = 0; i < 8; ++i) {
-			const ImVec2 rowMin(min.x + 12.0f * scale, min.y + header + 10.0f * scale + i * tabHeight);
-			const ImVec2 rowMax(min.x + side - 12.0f * scale, rowMin.y + tabHeight - 3.0f * scale);
-			const bool selected = i == active;
-			if (selected) {
-				drawList->AddRectFilled(rowMin, rowMax, IM_COL32(56, 70, 105, (int)(105.0f * ease)));
-				drawList->AddRect(rowMin, rowMax, IM_COL32(86, 169, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
-			}
-			const ImVec2 size = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, tabs[i]);
-			const float textY = rowMin.y + (rowMax.y - rowMin.y - size.y) * 0.5f;
-			drawList->AddText(font, labelSize * 1.08f, ImVec2(rowMin.x + 18.0f * scale, textY), selected ? text : muted, icons[i]);
-			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 52.0f * scale, textY), selected ? text : muted, tabs[i]);
-		}
-		const float contentX = min.x + side + 34.0f * scale;
-		const float contentRight = max.x - 34.0f * scale;
-		const float firstRowY = min.y + header + 72.0f * scale;
-		drawList->AddText(font, titleSize, ImVec2(contentX, min.y + 18.0f * scale), text, tabs[active]);
-		auto row = [&](int i, bool selected, const std::string &label, const std::string &value) {
-			const float rowHeight = 52.0f * scale;
-			const ImVec2 rowMin(contentX, firstRowY + i * rowHeight), rowMax(contentRight, firstRowY + (i + 1) * rowHeight - 4.0f * scale);
-			if (selected) {
-				drawList->AddRectFilled(rowMin, rowMax, IM_COL32(48, 61, 92, (int)(150.0f * ease)));
-				drawList->AddRect(rowMin, rowMax, IM_COL32(86, 169, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
-			}
-			const float textY = rowMin.y + (rowMax.y - rowMin.y - font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, label.c_str()).y) * 0.5f;
-			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 18.0f * scale, textY), selected ? text : muted, label.c_str());
-			if (!value.empty()) { const ImVec2 size = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, value.c_str()); drawList->AddText(font, labelSize, ImVec2(rowMax.x - size.x - 18.0f * scale, textY), text, value.c_str()); }
-		};
-		if (menu_ == Menu::SaveStates) {
-			const int firstSlot = std::clamp(selection_ - 5, 0, Ppsspp::SaveStateSlotCount - 6);
-			for (int rowIndex = 0; rowIndex < 6; ++rowIndex) { const int slot = firstSlot + rowIndex; row(rowIndex, slot == selection_, "存档槽 " + std::to_string(slot + 1), slotInUse_[slot] ? "已有存档" : "空"); }
-		} else if (menu_ == Menu::Cheats) {
-			if (cheats_.empty()) drawList->AddText(font, labelSize, ImVec2(contentX, firstRowY), muted, "当前游戏没有可用金手指。");
-			else for (int i = 0; i < std::min(7, (int)cheats_.size()); ++i) row(i, i == selection_, cheats_[i].name, cheats_[i].enabled ? "开启" : "关闭");
-		} else if (menu_ == Menu::Settings) {
-			if (coreSettingsPage_) {
-				const char *labels[] = {
-					"渲染分辨率", "跳帧", "自动跳帧", "快速内存", "硬件变换",
-					"跳过缓冲区效果", "垂直同步", "纹理过滤", "各向异性过滤", "纹理去色带"};
-				auto enabled = [](bool value) { return value ? std::string("开启") : std::string("关闭"); };
-				auto settingValue = [&](int index) {
-					switch (index) {
-					case 0: return g_Config.iInternalResolution == 0 ? std::string("自动") : std::to_string(g_Config.iInternalResolution) + "x";
-					case 1: return g_Config.iFrameSkip == 0 ? std::string("关闭") : std::to_string(g_Config.iFrameSkip) + " 帧";
-					case 2: return enabled(g_Config.bAutoFrameSkip);
-					case 3: return enabled(g_Config.bFastMemory);
-					case 4: return enabled(g_Config.bHardwareTransform);
-					case 5: return enabled(g_Config.bSkipBufferEffects);
-					case 6: return enabled(g_Config.bVSync);
-					case 7: {
-						const char *filters[] = {"默认", "自动", "最近邻", "线性", "高质量"};
-						return std::string(filters[std::clamp(g_Config.iTexFiltering, 0, 4)]);
-					}
-					case 8: return g_Config.iAnisotropyLevel == 0 ? std::string("关闭") : std::to_string(1 << g_Config.iAnisotropyLevel) + "x";
-					default: return enabled(g_Config.bTexDeposterize);
-					}
-				};
-				const int firstSetting = std::clamp(selection_ - 3, 0, 4);
-				for (int rowIndex = 0; rowIndex < 6; ++rowIndex) {
-					const int index = firstSetting + rowIndex;
-					row(rowIndex, index == selection_, labels[index], settingValue(index));
+	// GBAStation 3DS shell: left sidebar + right content.  The active tab stays
+	// visible while its rows change; entering a page moves focus to the rows
+	// and the sidebar falls back to a static highlight.
+	const float width = displaySize.x;
+	const float height = displaySize.y;
+	const ImVec2 min(0.0f, 0.0f);
+	const ImVec2 max(min.x + width, min.y + height);
+	const char *tabs[] = {"返回游戏", "保存状态", "读取状态", "金手指", "画面设置", "功能设置", "重置游戏", "退出游戏"};
+	const int icons[] = {0xE5C4, 0xE161, 0xE2C6, 0xE3AE, 0xE333, 0xE8B8, 0xE5D5, 0xE879};
+	const char *descriptions[] = {"继续当前游戏。", "创建即时存档。", "读取即时存档。", "管理游戏金手指。", "调整渲染分辨率和画面比例。", "调整可即时生效的核心选项。", "重新启动当前游戏。", "返回 GBAStation。"};
+	const int active = tabSelection_;
+
+	// 3DS palette
+	const ImU32 white = IM_COL32(240, 247, 255, (int)(255.0f * ease));
+	const ImU32 muted = IM_COL32(184, 204, 224, (int)(199.0f * ease));
+	const ImU32 cyan = IM_COL32(112, 204, 255, (int)(255.0f * ease));
+	const ImU32 focusBg = IM_COL32(0, 77, 128, (int)(133.0f * ease));
+	const ImU32 contentFocusBg = IM_COL32(33, 107, 179, (int)(51.0f * ease));
+	const ImU32 rowBg = IM_COL32(255, 255, 255, (int)(11.0f * ease));
+	const ImU32 rowBorder = IM_COL32(255, 255, 255, (int)(26.0f * ease));
+	const ImU32 focusBorder = IM_COL32(79, 179, 255, (int)(128.0f * ease));
+
+	ImFont *font = ImGui::GetFont();
+	const float fontSize = ImGui::GetFontSize();
+
+	// Background: vertical gradient strips like the 3DS shell.
+	for (int strip = 0; strip < 8; ++strip) {
+		const float t = (float)strip / 7.0f;
+		const int r = (int)((20.0f - t * 8.0f) * ease);
+		const int g = (int)((25.0f - t * 10.0f) * ease);
+		const int b = (int)((33.0f - t * 13.0f) * ease);
+		drawList->AddRectFilled(ImVec2(0.0f, strip * (height / 8.0f)),
+			ImVec2(width, (strip + 1) * (height / 8.0f)), IM_COL32(r, g, b, 240));
+	}
+
+	// Title
+	drawList->AddText(font, 26.0f * scale, ImVec2(64.0f * scale, 58.0f * scale), white, "游戏菜单");
+	drawList->AddRectFilled(ImVec2(56.0f * scale, 92.0f * scale),
+		ImVec2(width - 56.0f * scale, 93.0f * scale), IM_COL32(255, 255, 255, (int)(46.0f * ease)));
+
+	// Sidebar
+	const float sidebarX = 48.0f * scale;
+	const float sidebarY = 116.0f * scale;
+	const float sidebarW = 336.0f * scale;
+	const float itemH = 58.0f * scale;
+	const float step = 64.0f * scale;
+	for (int i = 0; i < 8; ++i) {
+		const float y = sidebarY + i * step;
+		const bool selected = i == active;
+		const bool tabFocused = selected && sidebarFocused_;
+		const ImVec2 itemMin(sidebarX, y), itemMax(sidebarX + sidebarW, y + itemH);
+		if (selected) {
+			drawList->AddRectFilled(itemMin, itemMax, tabFocused ? focusBg : contentFocusBg);
+			if (tabFocused) {
+				if (focusTexture_) {
+					DrawFlowBorder(drawList, sidebarX, y, sidebarW, itemH, 3.0f * scale);
+				} else {
+					drawList->AddRect(itemMin, itemMax, IM_COL32(79, 179, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
 				}
 			} else {
-				row(0, selection_ == 0, "显示模式", TranslatedDisplayModeLabel(displaySettings_.mode));
-				row(1, selection_ == 1, "画面比例", TranslatedDisplaySizeLabel(displaySettings_.size));
-			}
-		} else {
-			drawList->AddText(font, labelSize, ImVec2(contentX, firstRowY), muted, descriptions[active]);
-			if (active == 1 || active == 2) {
-				for (int slot = 0; slot < 6; ++slot) row(slot, false, "存档槽 " + std::to_string(slot + 1), slotInUse_[slot] ? "已有存档" : "空");
-			} else if (active == 4 || active == 5) {
-				row(0, false, "显示模式", TranslatedDisplayModeLabel(displaySettings_.mode));
-				row(1, false, "画面比例", TranslatedDisplaySizeLabel(displaySettings_.size));
+				drawList->AddRect(itemMin, itemMax, focusBorder, 0.0f, 0, 1.0f * scale);
 			}
 		}
-		return;
+		const float textY = y + itemH * 0.5f + fontSize * 0.12f * scale;
+		char iconBuf[8];
+		EncodeUtf8(iconBuf, icons[i]);
+		drawList->AddText(font, 25.0f * scale, ImVec2(sidebarX + 34.0f * scale, y + itemH * 0.5f - 12.5f * scale),
+			selected ? white : muted, iconBuf);
+		drawList->AddText(font, 21.0f * scale, ImVec2(sidebarX + 64.0f * scale, textY),
+			selected ? white : muted, tabs[i]);
+	}
+	// Reset separator
+	drawList->AddRectFilled(ImVec2(sidebarX + 18.0f * scale, sidebarY + 6.0f * step - 9.0f * scale),
+		ImVec2(sidebarX + sidebarW - 18.0f * scale, sidebarY + 6.0f * step - 8.0f * scale),
+		IM_COL32(255, 255, 255, (int)(36.0f * ease)));
+	// Divider
+	drawList->AddRectFilled(ImVec2(404.0f * scale, 110.0f * scale),
+		ImVec2(405.0f * scale, 610.0f * scale), IM_COL32(255, 255, 255, (int)(20.0f * ease)));
+
+	// Content area
+	const float contentX = 432.0f * scale;
+	const float contentW = 790.0f * scale;
+	const float contentRight = contentX + contentW;
+	const float viewTop = 176.0f * scale;
+	const float viewBottom = 664.0f * scale;
+	const float targetCenter = 420.0f * scale;
+	const float rowH = 48.0f * scale;
+	const float rowGap = 4.0f * scale;
+
+	// Header + title underline
+	drawList->AddText(font, 27.0f * scale, ImVec2(contentX, 150.0f * scale), white, tabs[active]);
+	drawList->AddRectFilled(ImVec2(contentX, 190.0f * scale),
+		ImVec2(contentX + contentW, 191.0f * scale), IM_COL32(0, 122, 204, (int)(71.0f * ease)));
+
+	// Rows with the selection kept centred inside [viewTop, viewBottom].
+	auto drawRow = [&](int row, bool focused, const char *iconUtf8, const std::string &label,
+		const std::string &value, bool selector) {
+		const float y = viewTop + row * (rowH + rowGap);
+		if (y + rowH < viewTop || y > viewBottom) {
+			return;
+		}
+		const ImVec2 rowMin(contentX, y), rowMax(contentX + contentW, y + rowH);
+		drawList->AddRectFilled(rowMin, rowMax, focused ? focusBg : rowBg);
+		if (focused) {
+			if (focusTexture_) {
+				DrawFlowBorder(drawList, contentX, y, contentW, rowH, 3.0f * scale);
+			} else {
+				drawList->AddRect(rowMin, rowMax, IM_COL32(79, 179, 255, (int)(255.0f * ease)));
+			}
+		} else {
+			drawList->AddRect(rowMin, rowMax, rowBorder, 0.0f, 0, 1.0f * scale);
+		}
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 24.0f * scale, y + rowH * 0.5f - 10.0f * scale),
+			selector ? cyan : (focused ? white : muted), iconUtf8);
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 46.0f * scale, y + rowH * 0.5f + 12.0f * scale),
+			focused ? white : muted, label.c_str());
+		if (selector) {
+			// LR value selector: L / value / R like the 3DS page.
+			char iconL[8], iconR[8];
+			EncodeUtf8(iconL, 0xE0E4);
+			EncodeUtf8(iconR, 0xE0E5);
+			const float centerY = y + rowH * 0.5f;
+			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 194.0f * scale, centerY - 13.0f * scale),
+				cyan, iconL);
+			const float valueW = font->CalcTextSizeA(18.0f * scale, 10000.0f, 0.0f, value.c_str()).x;
+			drawList->AddText(font, 18.0f * scale,
+				ImVec2(contentX + contentW - 110.0f * scale - valueW * 0.5f, centerY + 7.0f * scale),
+				cyan, value.c_str());
+			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 24.0f * scale, centerY - 13.0f * scale),
+				cyan, iconR);
+		} else {
+			const float valueW = font->CalcTextSizeA(18.0f * scale, 10000.0f, 0.0f, value.c_str()).x;
+			drawList->AddText(font, 18.0f * scale, ImVec2(contentX + contentW - valueW - 18.0f * scale, y + rowH * 0.5f + 7.0f * scale),
+				cyan, value.c_str());
+		}
+	};
+
+	const bool inContent = !sidebarFocused_;
+	if (menu_ == Menu::SaveStates) {
+		const int total = Ppsspp::SaveStateSlotCount;
+		const int visible = std::min(9, total);
+		const int firstSlot = std::clamp(selection_ - visible / 2, 0, std::max(0, total - visible));
+		for (int row = 0; row < visible; ++row) {
+			const int slot = firstSlot + row;
+			char icon[8];
+			EncodeUtf8(icon, 0xE161);
+			drawRow(row, inContent && slot == selection_, icon,
+				"存档槽 " + std::to_string(slot + 1), slotInUse_[slot] ? "已有存档" : "空", false);
+		}
+	} else if (menu_ == Menu::Cheats) {
+		if (cheats_.empty()) {
+			drawList->AddText(font, 21.0f * scale, ImVec2(contentX, viewTop + 28.0f * scale), muted, "当前游戏没有可用金手指。");
+			drawList->AddText(font, 20.0f * scale, ImVec2(contentX, viewTop + 100.0f * scale), muted, "已加载的金手指会在这里显示");
+		} else {
+			const int visible = std::min(9, (int)cheats_.size());
+			const int first = std::clamp(selection_ - visible / 2, 0, std::max(0, (int)cheats_.size() - visible));
+			for (int row = 0; row < visible; ++row) {
+				const int index = first + row;
+				char icon[8];
+				EncodeUtf8(icon, 0xE3AE);
+				drawRow(row, inContent && index == selection_, icon, cheats_[index].name,
+					cheats_[index].enabled ? "开启" : "关闭", false);
+			}
+		}
+	} else if (menu_ == Menu::Settings) {
+		char icon[8];
+		if (coreSettingsPage_) {
+			const char *labels[] = {
+				"跳帧", "自动跳帧", "快速内存", "硬件变换",
+				"跳过缓冲区效果", "垂直同步", "纹理过滤", "各向异性过滤", "纹理去色带"};
+			const int rowIcons[] = {0xE8B8, 0xE8E5, 0xE896, 0xE3B6, 0xE428, 0xE8F1, 0xE3F4, 0xE3F4, 0xE873};
+			auto enabled = [](bool value) { return value ? std::string("开启") : std::string("关闭"); };
+			auto settingValue = [&](int index) {
+				switch (index) {
+				case 0: return g_Config.iFrameSkip == 0 ? std::string("关闭") : std::to_string(g_Config.iFrameSkip) + " 帧";
+				case 1: return enabled(g_Config.bAutoFrameSkip);
+				case 2: return enabled(g_Config.bFastMemory);
+				case 3: return enabled(g_Config.bHardwareTransform);
+				case 4: return enabled(g_Config.bSkipBufferEffects);
+				case 5: return enabled(g_Config.bVSync);
+				case 6: {
+					const char *filters[] = {"默认", "自动", "最近邻", "线性", "高质量"};
+					return std::string(filters[std::clamp(g_Config.iTexFiltering, 0, 4)]);
+				}
+				case 7: return g_Config.iAnisotropyLevel == 0 ? std::string("关闭") : std::to_string(1 << g_Config.iAnisotropyLevel) + "x";
+				default: return enabled(g_Config.bTexDeposterize);
+				}
+			};
+			const int total = 9;
+			const int visible = std::min(8, total);
+			const int first = std::clamp(selection_ - visible / 2, 0, std::max(0, total - visible));
+			for (int row = 0; row < visible; ++row) {
+				const int index = first + row;
+				EncodeUtf8(icon, rowIcons[index]);
+				drawRow(row, inContent && index == selection_, icon, labels[index],
+					settingValue(index), index == 0 || index == 6 || index == 7);
+			}
+		} else {
+			// 画面设置: resolution moved here from the core page.
+			const char *labels[] = {"渲染分辨率", "显示模式", "画面比例"};
+			const int rowIcons[] = {0xE333, 0xE8F1, 0xE3F4};
+			auto settingValue = [&](int index) {
+				if (index == 0) {
+					return g_Config.iInternalResolution == 0 ? std::string("自动") : std::to_string(g_Config.iInternalResolution) + "x";
+				}
+				if (index == 1) {
+					return TranslatedDisplayModeLabel(displaySettings_.mode);
+				}
+				return TranslatedDisplaySizeLabel(displaySettings_.size);
+			};
+			for (int row = 0; row < 3; ++row) {
+				EncodeUtf8(icon, rowIcons[row]);
+				drawRow(row, inContent && row == selection_, icon, labels[row],
+					settingValue(row), true);
+			}
+		}
+	} else {
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX, 310.0f * scale),
+			IM_COL32(204, 230, 250, (int)(219.0f * ease)), descriptions[active]);
 	}
 }
 
 void Overlay::DrawHelpers(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease) {
-	struct Helper {
-		const char *button;
-		std::string label;
-	};
-	std::vector<Helper> helpers;
-	if (menu_ == Menu::Quick) {
-		helpers.push_back({"-", tr("emulator_reset")});
+	// 3DS-style footer: B and A button hints pinned to the bottom right.
+	const char *bLabel = (sidebarFocused_ || menu_ == Menu::Quick) ? "返回" : "返回列表";
+	const char *aLabel = nullptr;
+	if (menu_ == Menu::SaveStates) {
+		aLabel = saveStateMode_ == OverlayAction::SaveState ? "保存" : "读取";
+	} else if (menu_ == Menu::Cheats) {
+		aLabel = "切换";
+	} else if (menu_ == Menu::Settings) {
+		aLabel = "调整";
+	} else {
+		aLabel = "确定";
 	}
-	if (menu_ == Menu::Settings) {
-		helpers.push_back({"DPAD", tr("emulator_change")});
-	}
-	if (menu_ == Menu::Cheats && cheats_.size() > kCheatPageStep) {
-		helpers.push_back({"<>", "+10"});
-	}
-	const bool canToggleCheat = menu_ == Menu::Cheats && !cheats_.empty() && selection_ >= 0 &&
-		selection_ < (int)cheats_.size() && cheats_[selection_].toggleable;
-	const std::string aLabel = menu_ == Menu::SaveStates
-		? (saveStateMode_ == OverlayAction::SaveState ? tr("emulator_save_state") : tr("emulator_load_state"))
-		: (canToggleCheat ? tr("emulator_toggle") : tr("emulator_select"));
-	helpers.push_back({"B", tr("emulator_back")});
-	helpers.push_back({"A", aLabel});
 
 	ImFont *font = ImGui::GetFont();
-	const float barHeight = 48.0f * scale;
-	const float marginBottom = 24.0f * scale;
-	const float padding = 16.0f * scale;
-	const float buttonSize = 22.0f * scale;
-	const float itemSpacing = 12.0f * scale;
-	const float fontSize = ImGui::GetFontSize() * 0.78f;
-
-	float totalWidth = padding * 2.0f;
-	for (size_t i = 0; i < helpers.size(); ++i) {
-		totalWidth += buttonSize + (8.0f * scale) + font->CalcTextSizeA(fontSize, 10000.0f, 0.0f, helpers[i].label.c_str()).x;
-		if (i + 1 < helpers.size()) {
-			totalWidth += itemSpacing;
-		}
-	}
-
-	const float currentOffset = (kQuickMenuWidth * scale) * (1.0f - ease);
-	const float barX = displaySize.x - totalWidth - 20.0f * scale + currentOffset;
-	const float barY = displaySize.y - marginBottom - barHeight;
-	const float centerY = barY + barHeight * 0.5f;
-	float cursorX = barX + padding;
-	const ImU32 textColor = IM_COL32(200, 200, 200, (int)(255.0f * ease));
-
-	for (size_t i = 0; i < helpers.size(); ++i) {
-		const Helper &helper = helpers[i];
-		DrawSwitchButtonPrompt(drawList, font, fontSize, ImVec2(cursorX + buttonSize * 0.5f, centerY), buttonSize, helper.button, ease);
-		cursorX += buttonSize + (8.0f * scale);
-		const ImVec2 textSize = font->CalcTextSizeA(fontSize, 10000.0f, 0.0f, helper.label.c_str());
-		drawList->AddText(font, fontSize, ImVec2(cursorX, centerY - textSize.y * 0.5f), textColor, helper.label.c_str());
-		cursorX += textSize.x + itemSpacing;
-	}
+	const ImU32 hintColor = IM_COL32(184, 204, 224, (int)(199.0f * ease));
+	char iconB[8], iconA[8];
+	EncodeUtf8(iconB, 0xE0E1);
+	EncodeUtf8(iconA, 0xE0E0);
+	const float baseY = displaySize.y - 42.0f * scale;
+	drawList->AddText(font, 27.0f * scale, ImVec2(1020.0f * scale, baseY - 13.5f * scale), hintColor, iconB);
+	drawList->AddText(font, 19.0f * scale, ImVec2(1042.0f * scale, baseY + 9.0f * scale), hintColor, bLabel);
+	drawList->AddText(font, 27.0f * scale, ImVec2(1152.0f * scale, baseY - 13.5f * scale), hintColor, iconA);
+	drawList->AddText(font, 19.0f * scale, ImVec2(1174.0f * scale, baseY + 9.0f * scale), hintColor, aLabel);
 }
 
 void Overlay::DrawRAAlerts(Draw::DrawContext *draw, ImDrawList *drawList, ImVec2 displaySize, float scale, float deltaTime) {

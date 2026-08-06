@@ -79,6 +79,26 @@ static ImFont *AddGBAStationSystemFonts(ImGuiIO &io, float size) {
 		}
 		++loadedFonts;
 	}
+	// The Nintendo shared font carries the ABXY / L / R key glyphs used by the
+	// 3DS-style menu chrome and its LR value selectors.
+	PlFontData nintendoFont{};
+	if (R_SUCCEEDED(plGetSharedFontByType(&nintendoFont, PlSharedFontType_NintendoExt)) &&
+		nintendoFont.address && nintendoFont.size > 0) {
+		void *fontData = std::malloc(nintendoFont.size);
+		if (fontData) {
+			std::memcpy(fontData, nintendoFont.address, nintendoFont.size);
+			ImFontConfig config;
+			config.OversampleH = 1;
+			config.OversampleV = 1;
+			config.MergeMode = true;
+			if (io.Fonts->AddFontFromMemoryTTF(fontData, (int)nintendoFont.size, size,
+				&config, GetGBAStationMenuGlyphRanges(io))) {
+				++loadedFonts;
+			} else {
+				std::free(fontData);
+			}
+		}
+	}
 	plExit();
 	if (!font) {
 		std::fprintf(stderr, "GBAStation: no usable Switch shared font\n");
