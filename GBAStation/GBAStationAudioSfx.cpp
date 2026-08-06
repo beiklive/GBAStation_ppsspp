@@ -199,6 +199,13 @@ void AudioSfx::PlayUiSound(UiSound sound) {
 	if (uiSampleRate_ <= 0 || uiSamples_[(int)sound].empty()) {
 		return;
 	}
+	// A 2.8 ms focus tick restarted on every key repeat sounds shrill; keep the
+	// previous clip playing if it is less than one frame old (only replace
+	// clicks that already finished or are older than ~10 ms).
+	const int frame = (int)uiCursor_;
+	if (uiPlaying_ && frame > 0 && frame < 480) {
+		return;
+	}
 	uiCursor_ = 0.0;
 	uiPlaying_ = true;
 	uiSound_ = (int)sound;
@@ -230,7 +237,11 @@ void AudioSfx::Mix(s16 *output, int frames, int outputRate) {
 	const int totalTrophyFrames = trophyActive ? (int)trophySamples_.size() / trophyChannels_ : 0;
 	const double trophyStep = trophyActive ? (double)trophySampleRate_ / (double)outputRate : 1.0;
 	const int totalUiFrames = uiActive ? (int)uiSamples_[uiSound_].size() / 2 : 0;
-	const double uiStep = uiActive ? (double)uiSampleRate_ / (double)outputRate : 1.0;
+	// The 3DS UI clips are pre-resampled to 48 kHz and the audout device runs
+	// at a fixed 48 kHz (libnx audout), so no resampling is needed.  Deriving
+	// the step from the device rate here could play the clips fast/shrill.
+	const double uiStep = uiActive ? (double)uiSampleRate_ / (double)uiSampleRate_ : 1.0;
+	(void)outputRate;
 	for (int i = 0; i < frames; ++i) {
 		int mixedLeft = output[i * 2];
 		int mixedRight = output[i * 2 + 1];

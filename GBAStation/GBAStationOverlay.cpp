@@ -1022,13 +1022,39 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
 			}
 		} else {
-			if (navUp && itemCount > 0) {
-				selection_ = (selection_ + itemCount - 1) % itemCount;
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
-			}
-			if (navDown && itemCount > 0) {
-				selection_ = (selection_ + 1) % itemCount;
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+			if (menu_ == Menu::SaveStates) {
+				// Two-column grid: up/down step a whole row, left/right move
+				// between columns.
+				constexpr int kColumns = 2;
+				if (navUp && itemCount > 0) {
+					selection_ = (selection_ + itemCount - kColumns) % itemCount;
+					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				}
+				if (navDown && itemCount > 0) {
+					selection_ = (selection_ + kColumns) % itemCount;
+					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				}
+				if (navLeft && itemCount > 0) {
+					const int col = selection_ % kColumns;
+					selection_ = (selection_ - 1 + itemCount) % itemCount;
+					if (col == 0 && selection_ >= itemCount) {
+						selection_ = itemCount - 1;
+					}
+					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				}
+				if (navRight && itemCount > 0) {
+					selection_ = (selection_ + 1) % itemCount;
+					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				}
+			} else {
+				if (navUp && itemCount > 0) {
+					selection_ = (selection_ + itemCount - 1) % itemCount;
+					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				}
+				if (navDown && itemCount > 0) {
+					selection_ = (selection_ + 1) % itemCount;
+					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				}
 			}
 		}
 		if (menu_ == Menu::Settings) {
@@ -1146,7 +1172,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 				drawList->AddRect(itemMin, itemMax, focusBorder, 0.0f, 0, 1.0f * scale);
 			}
 		}
-		const float textY = y + itemH * 0.66f - 21.0f * scale * 0.86f;
+		const float textY = y + itemH * 0.5f - 21.0f * scale * 0.5f;
 		char iconBuf[8];
 		EncodeUtf8(iconBuf, icons[i]);
 		drawList->AddText(font, 25.0f * scale, ImVec2(sidebarX + 34.0f * scale, y + itemH * 0.5f - 12.5f * scale),
@@ -1173,9 +1199,9 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 	const float rowGap = 4.0f * scale;
 
 	// Header + title underline
-	drawList->AddText(font, 27.0f * scale, ImVec2(contentX, 150.0f * scale), white, tabs[active]);
-	drawList->AddRectFilled(ImVec2(contentX, 190.0f * scale),
-		ImVec2(contentX + contentW, 191.0f * scale), IM_COL32(0, 122, 204, (int)(71.0f * ease)));
+	drawList->AddText(font, 27.0f * scale, ImVec2(contentX, 116.0f * scale), white, tabs[active]);
+	drawList->AddRectFilled(ImVec2(contentX, 162.0f * scale),
+		ImVec2(contentX + contentW, 163.0f * scale), IM_COL32(0, 122, 204, (int)(71.0f * ease)));
 
 	// Rows with the selection kept centred inside [viewTop, viewBottom].
 	auto drawRow = [&](int row, bool focused, const char *iconUtf8, const std::string &label,
@@ -1195,9 +1221,9 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		} else {
 			drawList->AddRect(rowMin, rowMax, rowBorder, 0.0f, 0, 1.0f * scale);
 		}
-		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 24.0f * scale, y + rowH * 0.66f - 20.0f * scale * 0.86f),
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 24.0f * scale, y + rowH * 0.5f - 20.0f * scale * 0.5f),
 			selector ? cyan : (focused ? white : muted), iconUtf8);
-		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 46.0f * scale, y + rowH * 0.66f - 20.0f * scale * 0.86f),
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 46.0f * scale, y + rowH * 0.5f - 20.0f * scale * 0.5f),
 			focused ? white : muted, label.c_str());
 		if (selector) {
 			// LR value selector: L / value / R like the 3DS page.
@@ -1205,32 +1231,72 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 			EncodeUtf8(iconL, 0xE0E4);
 			EncodeUtf8(iconR, 0xE0E5);
 			const float centerY = y + rowH * 0.5f;
-			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 194.0f * scale, y + rowH * 0.66f - 26.0f * scale * 0.86f),
+			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 194.0f * scale, y + rowH * 0.5f - 26.0f * scale * 0.5f),
 				cyan, iconL);
 			const float valueW = font->CalcTextSizeA(18.0f * scale, 10000.0f, 0.0f, value.c_str()).x;
 			drawList->AddText(font, 18.0f * scale,
-				ImVec2(contentX + contentW - 110.0f * scale - valueW * 0.5f, y + rowH * 0.66f - 18.0f * scale * 0.86f),
+				ImVec2(contentX + contentW - 110.0f * scale - valueW * 0.5f, y + rowH * 0.5f - 18.0f * scale * 0.5f),
 				cyan, value.c_str());
-			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 24.0f * scale, y + rowH * 0.66f - 26.0f * scale * 0.86f),
+			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 24.0f * scale, y + rowH * 0.5f - 26.0f * scale * 0.5f),
 				cyan, iconR);
 		} else {
 			const float valueW = font->CalcTextSizeA(18.0f * scale, 10000.0f, 0.0f, value.c_str()).x;
-			drawList->AddText(font, 18.0f * scale, ImVec2(contentX + contentW - valueW - 18.0f * scale, y + rowH * 0.66f - 18.0f * scale * 0.86f),
+			drawList->AddText(font, 18.0f * scale, ImVec2(contentX + contentW - valueW - 18.0f * scale, y + rowH * 0.5f - 18.0f * scale * 0.5f),
 				cyan, value.c_str());
 		}
 	};
 
 	const bool inContent = !sidebarFocused_;
 	if (menu_ == Menu::SaveStates) {
+		// Two-column scrolling grid of save slots (like the launcher's
+		// GameMenuView): each cell shows an icon + slot name + status, and the
+		// focused cell is kept centred inside [viewTop, viewBottom].
 		const int total = Ppsspp::SaveStateSlotCount;
-		const int visible = std::min(9, total);
-		const int firstSlot = std::clamp(selection_ - visible / 2, 0, std::max(0, total - visible));
-		for (int row = 0; row < visible; ++row) {
-			const int slot = firstSlot + row;
-			char icon[8];
-			EncodeUtf8(icon, 0xE161);
-			drawRow(row, inContent && slot == selection_, icon,
-				"存档槽 " + std::to_string(slot + 1), slotInUse_[slot] ? "已有存档" : "空", false);
+		constexpr int kColumns = 2;
+		constexpr int kRows = 5;
+		const float cellW = (contentW - 14.0f * scale) * 0.5f;
+		const float cellH = 88.0f * scale;
+		const float cellGapX = 14.0f * scale;
+		const float cellGapY = 8.0f * scale;
+		const int gridH = kRows;
+		const int selectedRow = selection_ / kColumns;
+		const int firstRow = std::clamp(selectedRow - kRows / 2, 0, std::max(0, gridH - kRows));
+		for (int r = 0; r < kRows; ++r) {
+			const int row = firstRow + r;
+			for (int c = 0; c < kColumns; ++c) {
+				const int slot = row * kColumns + c;
+				if (slot >= total) {
+					continue;
+				}
+				const float x = contentX + c * (cellW + cellGapX);
+				const float y = viewTop + r * (cellH + cellGapY);
+				const bool focused = inContent && slot == selection_;
+				const ImVec2 cellMin(x, y), cellMax(x + cellW, y + cellH);
+				drawList->AddRectFilled(cellMin, cellMax, focused ? focusBg : rowBg, 6.0f * scale);
+				if (focused) {
+					if (focusTexture_) {
+						DrawFlowBorder(drawList, x, y, cellW, cellH, 3.0f * scale);
+					} else {
+						drawList->AddRect(cellMin, cellMax, IM_COL32(79, 179, 255, (int)(255.0f * ease)), 6.0f * scale, 0, 2.0f * scale);
+					}
+				} else {
+					drawList->AddRect(cellMin, cellMax, rowBorder, 6.0f * scale, 0, 1.0f * scale);
+				}
+				// Icon block on the left, two-line text beside it (launcher style).
+				const float iconX = x + 14.0f * scale;
+				const float iconCenterY = y + cellH * 0.5f;
+				char icon[8];
+				EncodeUtf8(icon, slotInUse_[slot] ? 0xE161 : 0xE2C7);
+				drawList->AddText(font, 34.0f * scale, ImVec2(iconX, iconCenterY - 34.0f * scale * 0.5f),
+					slotInUse_[slot] ? (focused ? white : cyan) : muted, icon);
+				const float textX = iconX + 44.0f * scale;
+				const std::string title = "存档槽 " + std::to_string(slot + 1);
+				drawList->AddText(font, 20.0f * scale, ImVec2(textX, y + 22.0f * scale),
+					focused ? white : muted, title.c_str());
+				const char *status = slotInUse_[slot] ? "已有存档" : "空存档槽";
+				drawList->AddText(font, 16.0f * scale, ImVec2(textX, y + cellH - 36.0f * scale),
+					slotInUse_[slot] ? cyan : muted, status);
+			}
 		}
 	} else if (menu_ == Menu::Cheats) {
 		if (cheats_.empty()) {
@@ -1325,10 +1391,10 @@ void Overlay::DrawHelpers(ImDrawList *drawList, ImVec2 displaySize, float scale,
 	EncodeUtf8(iconB, 0xE0E1);
 	EncodeUtf8(iconA, 0xE0E0);
 	const float baseY = displaySize.y - 42.0f * scale;
-	drawList->AddText(font, 27.0f * scale, ImVec2(1020.0f * scale, baseY - 27.0f * scale * 0.86f), hintColor, iconB);
-	drawList->AddText(font, 19.0f * scale, ImVec2(1042.0f * scale, baseY - 19.0f * scale * 0.86f), hintColor, bLabel);
-	drawList->AddText(font, 27.0f * scale, ImVec2(1152.0f * scale, baseY - 27.0f * scale * 0.86f), hintColor, iconA);
-	drawList->AddText(font, 19.0f * scale, ImVec2(1174.0f * scale, baseY - 19.0f * scale * 0.86f), hintColor, aLabel);
+	drawList->AddText(font, 27.0f * scale, ImVec2(1020.0f * scale, baseY - 27.0f * scale * 0.5f), hintColor, iconB);
+	drawList->AddText(font, 19.0f * scale, ImVec2(1042.0f * scale, baseY - 19.0f * scale * 0.5f), hintColor, bLabel);
+	drawList->AddText(font, 27.0f * scale, ImVec2(1152.0f * scale, baseY - 27.0f * scale * 0.5f), hintColor, iconA);
+	drawList->AddText(font, 19.0f * scale, ImVec2(1174.0f * scale, baseY - 19.0f * scale * 0.5f), hintColor, aLabel);
 }
 
 void Overlay::DrawRAAlerts(Draw::DrawContext *draw, ImDrawList *drawList, ImVec2 displaySize, float scale, float deltaTime) {
