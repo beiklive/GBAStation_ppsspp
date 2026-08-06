@@ -40,6 +40,7 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HW/StereoResampler.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/Util/PathUtil.h"
@@ -95,6 +96,8 @@ struct RuntimeState {
 	bool ppssppShutdown = false;
 	bool chainloadLauncher = false;
 	bool runtimeSettingsDirty = false;
+	bool settingsRenderResized = false;
+	bool settingsJitClear = false;
 	std::string contentPath;
 	GBAStationGraphicsHost graphicsHost;
 	GraphicsContext *graphicsContext = nullptr;
@@ -1395,11 +1398,18 @@ void PpssppRuntime::HandleInput(const FrameInput &input) {
 	// Gameplay bindings may deliberately move PSP directions onto either stick.
 	// The GBAStation menu is a frontend surface and always navigates with the
 	// physical Switch controls, while its open chord remains configurable.
+	const int prevResolution = g_Config.iInternalResolution;
+	const bool prevSkipBufferEffects = g_Config.bSkipBufferEffects;
+	const bool prevFastMemory = g_Config.bFastMemory;
 	const bool inputConsumedByOverlay = g_state.overlay.HandleInput(input.buttons, input.pressed,
 		input.leftStickX, input.leftStickY, input.rightStickX, input.rightStickY, overlayTogglePressed);
 	if (g_state.overlay.ConsumeCoreSettingsChanged()) {
 		SaveGBAStationPpssppRuntimeSettings();
 		g_state.runtimeSettingsDirty = true;
+		g_state.settingsRenderResized =
+			g_Config.iInternalResolution != prevResolution ||
+			g_Config.bSkipBufferEffects != prevSkipBufferEffects;
+		g_state.settingsJitClear = g_Config.bFastMemory != prevFastMemory;
 		Log("queued PPSSPP runtime core settings");
 	}
 	ExecuteOverlayCommand(g_state.overlay.ConsumeCommand());
@@ -1459,6 +1469,16 @@ void PpssppRuntime::RunFrame() {
 		if (g_state.runtimeSettingsDirty) {
 			gpu->NotifyConfigChanged();
 			gpu->CheckConfigChanged(displayLayoutConfig);
+			if (g_state.settingsRenderResized) {
+				gpu->NotifyRenderResized(displayLayoutConfig);
+				g_state.settingsRenderResized = false;
+			}
+			if (g_state.settingsJitClear) {
+				if (currentMIPS) {
+					currentMIPS->ClearJitCache();
+				}
+				g_state.settingsJitClear = false;
+			}
 			g_state.runtimeSettingsDirty = false;
 			Log("applied PPSSPP runtime core settings");
 		}

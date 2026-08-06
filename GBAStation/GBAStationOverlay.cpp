@@ -7,7 +7,6 @@
 #include "Core/Config.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/Math/lin/matrix4x4.h"
-#include "Common/Render/ManagedTexture.h"
 #include "Common/System/Display.h"
 #include "ext/imgui/imgui.h"
 #include "ext/imgui/imgui_impl_thin3d.h"
@@ -22,7 +21,6 @@
 #include <cmath>
 #include <cstring>
 #include <cstdio>
-#include <ctime>
 #include <vector>
 #include <utility>
 
@@ -65,24 +63,12 @@ constexpr u64 kCheatVerticalNavRepeatMs = 105;
 constexpr u64 kCheatHorizontalNavInitialRepeatMs = 320;
 constexpr u64 kCheatHorizontalNavRepeatMs = 180;
 constexpr int kCheatPageStep = 10;
-constexpr float kCheatRowHeight = 44.0f;
-constexpr float kCheatTipRowHeight = 26.0f;
-constexpr float kCheatSectionTopMargin = 10.0f;
-constexpr float kCheatTextScale = 0.76f;
-constexpr float kCheatSectionTextScale = 0.70f;
-constexpr float kCheatTipTextScale = 0.52f;
 
 constexpr DisplaySize kAspectDisplaySizes[] = {
 	DisplaySize::Stretch,
 	DisplaySize::_4_3,
 	DisplaySize::_16_9,
 	DisplaySize::Original,
-};
-
-const char *const kCustomAvatarPaths[] = {
-	"sdmc:/GBAStation/PSP/assets/avatar.jpg",
-	"sdmc:/GBAStation/PSP/assets/avatar.jpeg",
-	"sdmc:/GBAStation/PSP/assets/avatar.png"
 };
 
 bool ReadFileBytes(const char *path, std::vector<unsigned char> *data) {
@@ -111,31 +97,6 @@ bool ReadFileBytes(const char *path, std::vector<unsigned char> *data) {
 	}
 	return true;
 }
-
-#ifdef __SWITCH__
-bool FindAccountUid(AccountUid *uid) {
-	if (R_SUCCEEDED(accountGetPreselectedUser(uid)) && accountUidIsValid(uid)) {
-		return true;
-	}
-	if (R_SUCCEEDED(accountGetLastOpenedUser(uid)) && accountUidIsValid(uid)) {
-		return true;
-	}
-
-	s32 userCount = 0;
-	if (R_FAILED(accountGetUserCount(&userCount)) || userCount <= 0) {
-		return false;
-	}
-
-	AccountUid uids[ACC_USER_LIST_SIZE];
-	s32 actualTotal = 0;
-	if (R_SUCCEEDED(accountListAllUsers(uids, ACC_USER_LIST_SIZE, &actualTotal)) && actualTotal > 0) {
-		*uid = uids[0];
-		return accountUidIsValid(uid);
-	}
-
-	return false;
-}
-#endif
 
 uint8_t *LoadImGuiFontData(const char *path, size_t *sizeOut) {
 	*sizeOut = 0;
@@ -242,13 +203,6 @@ float EaseOutCubic(float t) {
 	return 1.0f - std::pow(1.0f - t, 3.0f);
 }
 
-void DrawOverlayText(ImDrawList *drawList, ImFont *font, float fontSize, ImVec2 pos, ImU32 color, const std::string &text) {
-	const char *begin = text.c_str();
-	const char *end = begin + text.size();
-	drawList->AddText(font, fontSize, ImVec2(pos.x + 1.5f, pos.y + 1.5f), IM_COL32(0, 0, 0, 50), begin, end);
-	drawList->AddText(font, fontSize, pos, color, begin, end);
-}
-
 void DrawSwitchButtonPrompt(ImDrawList *drawList, ImFont *font, float fontSize, ImVec2 center, float size, const char *symbol, float alpha) {
 	const ImU32 fillColor = IM_COL32(220, 220, 220, (int)(255.0f * alpha));
 	const ImU32 textColor = IM_COL32(40, 40, 40, (int)(255.0f * alpha));
@@ -257,35 +211,6 @@ void DrawSwitchButtonPrompt(ImDrawList *drawList, ImFont *font, float fontSize, 
 	const float symbolSize = fontSize * 0.75f;
 	const ImVec2 textSize = font->CalcTextSizeA(symbolSize, 10000.0f, 0.0f, symbol);
 	drawList->AddText(font, symbolSize, ImVec2(center.x - textSize.x * 0.5f, center.y - textSize.y * 0.5f), textColor, symbol);
-}
-
-void DrawRotatingImage(ImDrawList *drawList, ImTextureID textureId, ImVec2 center, float size, float angle, ImU32 color) {
-	const float half = size * 0.5f;
-	const float cosA = std::cos(angle);
-	const float sinA = std::sin(angle);
-	const auto rotate = [&](float x, float y) {
-		return ImVec2(center.x + x * cosA - y * sinA, center.y + x * sinA + y * cosA);
-	};
-	drawList->AddImageQuad(textureId,
-		rotate(-half, -half),
-		rotate(half, -half),
-		rotate(half, half),
-		rotate(-half, half),
-		ImVec2(0.0f, 0.0f),
-		ImVec2(1.0f, 0.0f),
-		ImVec2(1.0f, 1.0f),
-		ImVec2(0.0f, 1.0f),
-		color);
-}
-
-void DrawFallbackSpinner(ImDrawList *drawList, ImVec2 center, float radius, float angle, float scale, float alpha) {
-	for (int i = 0; i < 8; ++i) {
-		const float t = ((float)i / 8.0f) * 6.2831853f + angle;
-		const float lineAlpha = alpha * (0.25f + 0.75f * ((float)i / 7.0f));
-		const ImVec2 p0(center.x + std::cos(t) * radius * 0.45f, center.y + std::sin(t) * radius * 0.45f);
-		const ImVec2 p1(center.x + std::cos(t) * radius, center.y + std::sin(t) * radius);
-		drawList->AddLine(p0, p1, IM_COL32(235, 235, 235, (int)(255.0f * lineAlpha)), 2.0f * scale);
-	}
 }
 
 DisplaySize CycleDisplaySize(DisplaySize current, const DisplaySize *sizes, int count, int direction) {
@@ -440,73 +365,6 @@ void MoveCheatSelectionWrapped(int &selection, const std::vector<CheatMenuEntry>
 	}
 }
 
-float CheatRowHeight(const std::vector<CheatMenuEntry> &cheats, int index, float scale) {
-	if (index >= 0 && index < (int)cheats.size() && cheats[index].kind == CheatMenuEntryKind::Tip) {
-		return kCheatTipRowHeight * scale;
-	}
-	if (index >= 0 && index < (int)cheats.size() && cheats[index].kind == CheatMenuEntryKind::Section) {
-		return (kCheatRowHeight + kCheatSectionTopMargin) * scale;
-	}
-	return kCheatRowHeight * scale;
-}
-
-float CheatRowTopPadding(const std::vector<CheatMenuEntry> &cheats, int index, float scale) {
-	if (index >= 0 && index < (int)cheats.size() && cheats[index].kind == CheatMenuEntryKind::Section) {
-		return kCheatSectionTopMargin * scale;
-	}
-	return 0.0f;
-}
-
-void CalculateVisibleCheatRows(const std::vector<CheatMenuEntry> &cheats, int totalItemCount, int selection, float displayHeight, float scale,
-		int *firstItem, int *visibleItemCount, float *contentHeight) {
-	*firstItem = 0;
-	*visibleItemCount = totalItemCount;
-	*contentHeight = 0.0f;
-	if (totalItemCount <= 0) {
-		return;
-	}
-
-	const float maxMenuHeight = std::clamp(displayHeight * 0.62f, 6.0f * kCheatRowHeight * scale, 12.0f * kCheatRowHeight * scale);
-	const int clampedSelection = std::clamp(selection, 0, totalItemCount - 1);
-	const float selectedHeight = CheatRowHeight(cheats, clampedSelection, scale);
-	const float aboveBudget = std::max(0.0f, (maxMenuHeight - selectedHeight) * 0.5f);
-
-	float aboveHeight = 0.0f;
-	*firstItem = clampedSelection;
-	while (*firstItem > 0) {
-		const float previousHeight = CheatRowHeight(cheats, *firstItem - 1, scale);
-		if (aboveHeight + previousHeight > aboveBudget) {
-			break;
-		}
-		aboveHeight += previousHeight;
-		(*firstItem)--;
-	}
-
-	float visibleHeight = 0.0f;
-	int visible = 0;
-	for (int i = *firstItem; i < totalItemCount; ++i) {
-		const float rowHeight = CheatRowHeight(cheats, i, scale);
-		if (visible > 0 && visibleHeight + rowHeight > maxMenuHeight) {
-			break;
-		}
-		visibleHeight += rowHeight;
-		visible++;
-	}
-
-	while (*firstItem > 0 && *firstItem + visible >= totalItemCount) {
-		const float previousHeight = CheatRowHeight(cheats, *firstItem - 1, scale);
-		if (visibleHeight + previousHeight > maxMenuHeight) {
-			break;
-		}
-		visibleHeight += previousHeight;
-		(*firstItem)--;
-		visible++;
-	}
-
-	*visibleItemCount = std::max(1, visible);
-	*contentHeight = visibleHeight;
-}
-
 }  // namespace
 
 bool Overlay::Init(Draw::DrawContext *draw, const char *gamePath, LogCallback log) {
@@ -590,108 +448,9 @@ bool Overlay::Init(Draw::DrawContext *draw, const char *gamePath, LogCallback lo
 
 	title_ = GameTitleFromPath(gamePath);
 	displaySettings_ = LoadPpssppDisplaySettings(log_);
-	LoadSocial(draw);
 	ready_ = true;
-	const Result psmRc = psmInitialize();
-	psmReady_ = R_SUCCEEDED(psmRc);
-	batteryTimer_ = 0.0f;
-	LogMessage(log_, "GBAStation overlay psm=0x%x ready=%d", (unsigned)psmRc, psmReady_ ? 1 : 0);
 	LogMessage(log_, "GBAStation overlay initialized title=%s", title_.c_str());
 	return true;
-}
-
-bool Overlay::LoadAvatarTextureFromMemory(Draw::DrawContext *draw, const unsigned char *data, size_t size, const char *tag) {
-	if (!draw || !data || size == 0) {
-		return false;
-	}
-
-	Draw::Texture *texture = CreateTextureFromFileData(draw, (const uint8_t *)data, size, ImageFileType::DETECT, false, tag);
-	if (!texture) {
-		return false;
-	}
-
-	ReleaseAvatarTexture();
-	avatarTexture_ = texture;
-	avatarWidth_ = texture->Width();
-	avatarHeight_ = texture->Height();
-	if (avatarWidth_ <= 0 || avatarHeight_ <= 0) {
-		ReleaseAvatarTexture();
-		return false;
-	}
-	return true;
-}
-
-bool Overlay::LoadAvatarTextureFromFile(Draw::DrawContext *draw, const char *path) {
-	std::vector<unsigned char> data;
-	if (!ReadFileBytes(path, &data)) {
-		return false;
-	}
-	return LoadAvatarTextureFromMemory(draw, data.data(), data.size(), path);
-}
-
-void Overlay::LoadSocial(Draw::DrawContext *draw) {
-	nickname_ = "Player 1";
-
-	for (const char *path : kCustomAvatarPaths) {
-		if (LoadAvatarTextureFromFile(draw, path)) {
-			LogMessage(log_, "GBAStation overlay avatar custom path=%s size=%dx%d", path, avatarWidth_, avatarHeight_);
-			return;
-		}
-	}
-
-#ifdef __SWITCH__
-	const Result initRc = accountInitialize(AccountServiceType_Application);
-	if (R_FAILED(initRc)) {
-		LogMessage(log_, "GBAStation overlay account init failed rc=0x%x", (unsigned)initRc);
-		return;
-	}
-
-	AccountUid uid = {};
-	if (!FindAccountUid(&uid)) {
-		LogMessage(log_, "GBAStation overlay account user not found");
-		accountExit();
-		return;
-	}
-
-	AccountProfile profile;
-	const Result profileRc = accountGetProfile(&profile, uid);
-	if (R_FAILED(profileRc)) {
-		LogMessage(log_, "GBAStation overlay account profile failed rc=0x%x", (unsigned)profileRc);
-		accountExit();
-		return;
-	}
-
-	AccountProfileBase profileBase = {};
-	if (R_SUCCEEDED(accountProfileGet(&profile, nullptr, &profileBase))) {
-		const std::string profileName = Trim(std::string(profileBase.nickname));
-		if (!profileName.empty()) {
-			nickname_ = profileName;
-		}
-	}
-
-	u32 imageSize = 0;
-	if (R_SUCCEEDED(accountProfileGetImageSize(&profile, &imageSize)) && imageSize > 0) {
-		std::vector<unsigned char> jpegData(imageSize);
-		u32 actualSize = 0;
-		if (R_SUCCEEDED(accountProfileLoadImage(&profile, jpegData.data(), imageSize, &actualSize)) && actualSize > 0) {
-			if (LoadAvatarTextureFromMemory(draw, jpegData.data(), actualSize, "switch-account-avatar")) {
-				LogMessage(log_, "GBAStation overlay avatar account user=%s size=%dx%d", nickname_.c_str(), avatarWidth_, avatarHeight_);
-			}
-		}
-	}
-
-	accountProfileClose(&profile);
-	accountExit();
-#endif
-}
-
-void Overlay::ReleaseAvatarTexture() {
-	if (avatarTexture_) {
-		avatarTexture_->Release();
-		avatarTexture_ = nullptr;
-	}
-	avatarWidth_ = 0;
-	avatarHeight_ = 0;
 }
 
 Draw::Texture *Overlay::LoadRAIconTexture(Draw::DrawContext *draw) {
@@ -750,73 +509,10 @@ Draw::Texture *Overlay::LoadRAIconTexture(Draw::DrawContext *draw) {
 	return nullptr;
 }
 
-Draw::Texture *Overlay::LoadLoaderTexture(Draw::DrawContext *draw) {
-	if (loaderTexture_ || !draw) {
-		return loaderTexture_;
-	}
-
-	const char *const loaderPaths[] = {
-		"romfs:/assets/loader.svg",
-		"sdmc:/GBAStation/PSP/assets/loader.svg",
-	};
-	for (const char *path : loaderPaths) {
-		std::vector<unsigned char> svgData;
-		if (!ReadFileBytes(path, &svgData)) {
-			continue;
-		}
-		svgData.push_back('\0');
-		NSVGimage *image = nsvgParse((char *)svgData.data(), "px", 96.0f);
-		if (!image || image->width <= 0.0f || image->height <= 0.0f) {
-			if (image) {
-				nsvgDelete(image);
-			}
-			continue;
-		}
-
-		const float targetSize = 96.0f;
-		const float svgMax = std::max(image->width, image->height);
-		const float rasterScale = targetSize / svgMax;
-		const int width = std::max(1, (int)std::ceil(image->width * rasterScale));
-		const int height = std::max(1, (int)std::ceil(image->height * rasterScale));
-		std::vector<unsigned char> pixels((size_t)width * (size_t)height * 4);
-		NSVGrasterizer *rasterizer = nsvgCreateRasterizer();
-		if (rasterizer) {
-			nsvgRasterize(rasterizer, image, 0.0f, 0.0f, rasterScale, pixels.data(), width, height, width * 4);
-			Draw::TextureDesc desc{};
-			desc.type = Draw::TextureType::LINEAR2D;
-			desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-			desc.width = width;
-			desc.height = height;
-			desc.depth = 1;
-			desc.mipLevels = 1;
-			desc.generateMips = false;
-			desc.tag = path;
-			desc.initData.push_back(pixels.data());
-			loaderTexture_ = draw->CreateTexture(desc);
-			nsvgDeleteRasterizer(rasterizer);
-		}
-		nsvgDelete(image);
-		if (loaderTexture_) {
-			LogMessage(log_, "GBAStation overlay loader loaded path=%s", path);
-			return loaderTexture_;
-		}
-	}
-
-	LogMessage(log_, "GBAStation overlay loader not found");
-	return nullptr;
-}
-
 void Overlay::ReleaseRAIconTexture() {
 	if (raIconTexture_) {
 		raIconTexture_->Release();
 		raIconTexture_ = nullptr;
-	}
-}
-
-void Overlay::ReleaseLoaderTexture() {
-	if (loaderTexture_) {
-		loaderTexture_->Release();
-		loaderTexture_ = nullptr;
 	}
 }
 
@@ -828,17 +524,12 @@ void Overlay::Shutdown() {
 	if (context_) {
 		ImGui::SetCurrentContext(context_);
 	}
-	ReleaseAvatarTexture();
 	ReleaseRAIconTexture();
-	ReleaseLoaderTexture();
 	if (ready_) {
 		ImGui_ImplThin3d_Shutdown();
 	}
 	if (context_) {
 		ImGui::DestroyContext(context_);
-	}
-	if (psmReady_) {
-		psmExit();
 	}
 
 	context_ = nullptr;
@@ -865,9 +556,6 @@ void Overlay::Shutdown() {
 	nextCheatHorizontalNavMs_ = 0;
 	cheatVerticalNavDir_ = 0;
 	cheatHorizontalNavDir_ = 0;
-	nickname_ = "Player 1";
-	loaderTimer_ = 0.0f;
-	psmReady_ = false;
 }
 
 void Overlay::SetVisible(bool visible) {
@@ -1100,7 +788,6 @@ void Overlay::ExecuteSelection() {
 			cheatsLoading_ = true;
 			cheatsLoadCommandSent_ = false;
 			cheatsLoadingDelayFrames_ = 1;
-			loaderTimer_ = 0.0f;
 			pendingCommand_ = {};
 		}
 		menu_ = Menu::Cheats;
@@ -1271,28 +958,6 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 	return wasVisible || visible_ || menuTogglePressed;
 }
 
-void Overlay::UpdateBattery(float deltaTime) {
-	if (!psmReady_) {
-		return;
-	}
-
-	batteryTimer_ -= deltaTime;
-	if (batteryTimer_ > 0.0f) {
-		return;
-	}
-	batteryTimer_ = 1.0f;
-
-	u32 batteryLevel = batteryLevel_;
-	if (R_SUCCEEDED(psmGetBatteryChargePercentage(&batteryLevel))) {
-		batteryLevel_ = batteryLevel;
-	}
-
-	PsmChargerType chargerType = PsmChargerType_Unconnected;
-	if (R_SUCCEEDED(psmGetChargerType(&chargerType))) {
-		charging_ = chargerType != PsmChargerType_Unconnected;
-	}
-}
-
 void Overlay::DrawBackground(ImDrawList *drawList, ImVec2 displaySize, float ease) {
 	const int baseAlpha = (int)(72.0f * ease);
 	const int maxAlpha = (int)(110.0f * ease);
@@ -1309,73 +974,6 @@ void Overlay::DrawBackground(ImDrawList *drawList, ImVec2 displaySize, float eas
 	drawList->AddRectFilledMultiColor(ImVec2(0.0f, 0.0f), ImVec2(displaySize.x, topH), colMax, colMax, colBase, colBase);
 	drawList->AddRectFilled(ImVec2(0.0f, topH), ImVec2(displaySize.x, topH + centerH), colBase);
 	drawList->AddRectFilledMultiColor(ImVec2(0.0f, displaySize.y - bottomH), displaySize, colBase, colBase, colMax, colMax);
-}
-
-std::string Overlay::TitleText() const {
-	if (menu_ == Menu::SaveStates) {
-		return saveStateMode_ == OverlayAction::SaveState ? tr("emulator_save_state") : tr("emulator_load_state");
-	}
-	if (menu_ == Menu::Cheats) {
-		return tr("emulator_cheats");
-	}
-	if (menu_ == Menu::Settings) {
-		return coreSettingsPage_ ? tr("emulator_core_settings") : tr("emulator_video_settings");
-	}
-
-	return title_.empty() ? "PPSSPP" : title_;
-}
-
-void Overlay::DrawTitle(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease) {
-	std::string title = TitleText();
-	if (title.size() > 50) {
-		title = title.substr(0, 47) + "...";
-	}
-
-	ImFont *font = ImGui::GetFont();
-	const float titleHeight = 72.0f * scale;
-	const float availableTopSpace = 110.0f * scale;
-	const float cardWidth = displaySize.x * 0.4f;
-	const float cardX = (displaySize.x - cardWidth) * 0.5f;
-	const float cardY = (availableTopSpace - titleHeight) * 0.5f;
-	const float startY = -150.0f * scale;
-	const float currentY = startY + (cardY - startY) * ease;
-	const float fontSize = ImGui::GetFontSize();
-	const ImVec2 textSize = font->CalcTextSizeA(fontSize, 10000.0f, 0.0f, title.c_str());
-	const float textX = cardX + (cardWidth - textSize.x) * 0.5f;
-	const float textY = currentY + (titleHeight - textSize.y) * 0.5f;
-
-	DrawOverlayText(drawList, font, fontSize, ImVec2(textX, textY), IM_COL32(200, 200, 200, (int)(255.0f * ease)), title);
-}
-
-void Overlay::DrawSocialArea(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease) {
-	if (ease < 0.01f) {
-		return;
-	}
-
-	const float startOffset = 200.0f * scale;
-	const float currentOffset = startOffset * (1.0f - ease);
-	const float avatarSize = 72.0f * scale;
-	const float sideMargin = 32.0f * scale;
-	const float topMargin = 32.0f * scale;
-	const float barHeight = 50.0f * scale;
-	const float radius = avatarSize * 0.5f;
-	const ImVec2 avatarCenter(
-		sideMargin + avatarSize * 0.5f - currentOffset,
-		topMargin + barHeight * 0.5f);
-
-	drawList->AddCircleFilled(avatarCenter, radius, IM_COL32(45, 45, 45, (int)(255.0f * ease)), 32);
-
-	const float imageRadius = radius - (4.0f * scale);
-	const ImVec2 imageMin(avatarCenter.x - imageRadius, avatarCenter.y - imageRadius);
-	const ImVec2 imageMax(avatarCenter.x + imageRadius, avatarCenter.y + imageRadius);
-	if (avatarTexture_) {
-		const ImTextureID textureId = ImGui_ImplThin3d_AddTextureTemp(avatarTexture_);
-		drawList->AddImageRounded(textureId, imageMin, imageMax, ImVec2(0.0f, 0.0f), ImVec2(1.0f, 1.0f),
-			IM_COL32(255, 255, 255, (int)(255.0f * ease)), imageRadius);
-		drawList->AddCircle(avatarCenter, imageRadius, IM_COL32(255, 255, 255, (int)(60.0f * ease)), 32, 1.0f * scale);
-	} else {
-		drawList->AddCircleFilled(avatarCenter, imageRadius, IM_COL32(200, 200, 210, (int)(255.0f * ease)), 32);
-	}
 }
 
 void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease) {
@@ -1483,248 +1081,6 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		}
 		return;
 	}
-	// The quick menu is the first screen users see.  Keep the detailed pages
-	// below, but render this root as GBAStation's left-tab/right-content layout
-	// instead of the old centered GBAStation list.
-	if (menu_ == Menu::Quick) {
-		const int totalItemCount = ItemCount();
-		const float width = std::min(displaySize.x - 100.0f * scale, 1030.0f * scale);
-		const float height = std::min(displaySize.y - 150.0f * scale, 530.0f * scale);
-		const ImVec2 origin((displaySize.x - width) * 0.5f,
-			(displaySize.y - height) * 0.5f + (1.0f - ease) * 90.0f * scale);
-		const ImVec2 end(origin.x + width, origin.y + height);
-		const float sideWidth = std::min(300.0f * scale, width * 0.32f);
-		const float rowHeight = (height - 32.0f * scale) / std::max(1, totalItemCount);
-		ImFont *font = ImGui::GetFont();
-		const float labelSize = ImGui::GetFontSize() * 0.78f;
-		const float titleSize = ImGui::GetFontSize() * 1.12f;
-		drawList->AddRectFilled(origin, end, IM_COL32(14, 23, 28, (int)(248.0f * ease)), 6.0f * scale);
-		drawList->AddRectFilled(origin, ImVec2(origin.x + sideWidth, end.y),
-			IM_COL32(18, 48, 52, (int)(255.0f * ease)), 6.0f * scale, ImDrawFlags_RoundCornersLeft);
-		for (int i = 0; i < totalItemCount; ++i) {
-			const QuickMenuItem &item = kQuickMenuItems[QuickMenuStorageIndex(i)];
-			const ImVec2 rowMin(origin.x + 12.0f * scale, origin.y + 16.0f * scale + i * rowHeight);
-			const ImVec2 rowMax(origin.x + sideWidth - 12.0f * scale, rowMin.y + rowHeight - 4.0f * scale);
-			const bool selected = selection_ == i;
-			if (selected)
-				drawList->AddRectFilled(rowMin, rowMax, IM_COL32(15, 142, 122, (int)(235.0f * ease)), 4.0f * scale);
-			const std::string label = tr(item.labelKey);
-			const ImVec2 textSize = font->CalcTextSizeA(labelSize, 10000.0f, 0.0f, label.c_str());
-			drawList->AddText(font, labelSize, ImVec2(rowMin.x + 18.0f * scale, rowMin.y + (rowHeight - textSize.y) * 0.5f),
-				selected ? IM_COL32(255, 255, 255, (int)(255.0f * ease)) : IM_COL32(205, 212, 220, (int)(235.0f * ease)), label.c_str());
-		}
-		const QuickMenuItem &selectedItem = kQuickMenuItems[QuickMenuStorageIndex(selection_)];
-		const std::string heading = tr(selectedItem.labelKey);
-		const char *description = selectedItem.action == QuickMenuItem::Action::Resume ? "Return to the current game." :
-			selectedItem.action == QuickMenuItem::Action::SaveState ? "Create a restore point for the current game." :
-			selectedItem.action == QuickMenuItem::Action::LoadState ? "Resume from an existing restore point." :
-			selectedItem.action == QuickMenuItem::Action::Cheats ? "Manage game cheat codes." :
-			(selectedItem.action == QuickMenuItem::Action::VideoSettings || selectedItem.action == QuickMenuItem::Action::CoreSettings) ? "Configure display and core options." :
-			selectedItem.action == QuickMenuItem::Action::Reset ? "Restart the current game." : "Return to GBAStation.";
-		const float contentX = origin.x + sideWidth + 48.0f * scale;
-		drawList->AddText(font, titleSize, ImVec2(contentX, origin.y + 72.0f * scale), IM_COL32(255, 255, 255, (int)(255.0f * ease)), heading.c_str());
-		drawList->AddLine(ImVec2(contentX, origin.y + 118.0f * scale), ImVec2(end.x - 48.0f * scale, origin.y + 118.0f * scale), IM_COL32(42, 116, 108, (int)(180.0f * ease)), 1.0f * scale);
-		drawList->AddText(font, labelSize, ImVec2(contentX, origin.y + 150.0f * scale), IM_COL32(196, 222, 216, (int)(235.0f * ease)), description);
-		return;
-	}
-	const int totalItemCount = ItemCount();
-	const float itemHeight = 64.0f * scale;
-	int visibleItemCount = totalItemCount;
-	int firstItem = 0;
-	float contentHeight = (float)visibleItemCount * itemHeight;
-	if (menu_ == Menu::Cheats) {
-		CalculateVisibleCheatRows(cheats_, totalItemCount, selection_, displaySize.y, scale, &firstItem, &visibleItemCount, &contentHeight);
-	}
-	const float targetMenuWidth = kQuickMenuWidth * (menu_ == Menu::Cheats ? 2.0f : 1.0f) * scale;
-	const float menuWidth = std::min(targetMenuWidth, displaySize.x - 96.0f * scale);
-	const ImVec2 menuSize(menuWidth, contentHeight);
-	const float targetY = (displaySize.y - menuSize.y) * 0.5f;
-	const float startY = displaySize.y + (100.0f * scale);
-	const float currentY = startY + (targetY - startY) * ease;
-	const ImVec2 menuPos((displaySize.x - menuSize.x) * 0.5f, currentY);
-	const ImVec2 menuMax(menuPos.x + menuSize.x, menuPos.y + menuSize.y);
-	const float cornerRadius = 16.0f * scale;
-
-	drawList->AddRectFilled(menuPos, menuMax, IM_COL32(45, 45, 45, (int)(255.0f * ease)), cornerRadius);
-
-	ImFont *font = ImGui::GetFont();
-	const float labelSize = ImGui::GetFontSize() * (menu_ == Menu::Cheats ? kCheatTextScale : 0.85f);
-	float itemY = menuPos.y;
-	for (int row = 0; row < visibleItemCount; ++row) {
-		const int i = firstItem + row;
-		const bool selected = selection_ == i && (menu_ != Menu::Cheats || IsSelectableCheatRow(cheats_, i));
-		const float rowHeight = menu_ == Menu::Cheats ? CheatRowHeight(cheats_, i, scale) : itemHeight;
-		const float rowTopPadding = menu_ == Menu::Cheats ? CheatRowTopPadding(cheats_, i, scale) : 0.0f;
-		const ImVec2 itemMin(menuPos.x, itemY);
-		const ImVec2 itemMax(menuPos.x + menuSize.x, itemY + rowHeight);
-
-		if (selected) {
-			ImDrawFlags corners = ImDrawFlags_None;
-			float itemRadius = 0.0f;
-			if (row == 0) {
-				corners = ImDrawFlags_RoundCornersTop;
-				itemRadius = cornerRadius;
-			} else if (row == visibleItemCount - 1) {
-				corners = ImDrawFlags_RoundCornersBottom;
-				itemRadius = cornerRadius;
-			}
-			drawList->AddRectFilled(itemMin, itemMax, IM_COL32(60, 60, 60, (int)(255.0f * ease)), itemRadius, corners);
-		}
-
-		char slotLabel[128];
-		std::string labelText;
-		std::string valueText;
-		bool drawCheckbox = false;
-		bool checkboxChecked = false;
-		bool drawLoader = false;
-		const bool tipRow = menu_ == Menu::Cheats && !cheats_.empty() && cheats_[i].kind == CheatMenuEntryKind::Tip;
-		const bool sectionRow = menu_ == Menu::Cheats && !cheats_.empty() && cheats_[i].kind == CheatMenuEntryKind::Section;
-		const bool metadataRow = menu_ == Menu::Cheats && !cheats_.empty() && !cheats_[i].toggleable;
-		ImFont *rowFont = tipRow ? ImGui_GetFixedFont() : font;
-		if (!rowFont) {
-			rowFont = font;
-		}
-		const float rowLabelSize = tipRow ? ImGui::GetFontSize() * kCheatTipTextScale :
-			(sectionRow ? ImGui::GetFontSize() * kCheatSectionTextScale : labelSize);
-		const char *label = nullptr;
-		const char *value = nullptr;
-		if (menu_ == Menu::Quick) {
-			const QuickMenuItem &item = kQuickMenuItems[QuickMenuStorageIndex(i)];
-			labelText = tr(item.labelKey);
-			drawLoader = cheatsLoading_ && item.action == QuickMenuItem::Action::Cheats;
-			label = labelText.c_str();
-		} else if (menu_ == Menu::SaveStates) {
-			const std::string slotFormat = tr("emulator_slot");
-			const std::string slotState = slotInUse_[i] ? tr("emulator_in_use") : tr("emulator_empty");
-			snprintf(slotLabel, sizeof(slotLabel), slotFormat.c_str(), i + 1, slotState.c_str());
-			label = slotLabel;
-		} else if (menu_ == Menu::Cheats) {
-			if (cheats_.empty()) {
-				labelText = cheatsAvailable_ ? tr("emulator_no_cheats") : tr("emulator_no_cheat_db");
-			} else {
-				labelText = cheats_[i].name.empty() ? tr("emulator_cheat") : cheats_[i].name;
-				drawCheckbox = cheats_[i].toggleable;
-				checkboxChecked = cheats_[i].enabled;
-			}
-			label = labelText.c_str();
-		} else {
-			if (coreSettingsPage_) {
-				static const char *labels[] = {"跳帧", "自动跳帧", "快速内存", "硬件变换", "纹理过滤", "各向异性过滤", "去色带"};
-				labelText = labels[std::clamp(i, 0, 6)];
-				switch (i) {
-				case 0: valueText = std::to_string(g_Config.iFrameSkip); break;
-				case 1: valueText = g_Config.bAutoFrameSkip ? "开启" : "关闭"; break;
-				case 2: valueText = g_Config.bFastMemory ? "开启" : "关闭"; break;
-				case 3: valueText = g_Config.bHardwareTransform ? "开启" : "关闭"; break;
-				case 4: valueText = g_Config.iTexFiltering == 1 ? "自动" : g_Config.iTexFiltering == 2 ? "最近邻" : g_Config.iTexFiltering == 3 ? "线性" : "最高质量"; break;
-				case 5: valueText = g_Config.iAnisotropyLevel == 0 ? "关闭" : std::to_string(1 << g_Config.iAnisotropyLevel) + "x"; break;
-				case 6: valueText = g_Config.bTexDeposterize ? "开启" : "关闭"; break;
-				}
-			} else if (i == 0) {
-				labelText = tr("emulator_display_mode");
-				valueText = TranslatedDisplayModeLabel(displaySettings_.mode);
-			} else {
-				labelText = tr("emulator_size");
-				valueText = TranslatedDisplaySizeLabel(displaySettings_.size);
-			}
-			label = labelText.c_str();
-			value = valueText.c_str();
-		}
-		float textX = itemMin.x + (20.0f * scale);
-		if (drawCheckbox) {
-			textX += 34.0f * scale;
-		}
-		std::string drawLabelText;
-		if (value) {
-			const ImVec2 valueSize = rowFont->CalcTextSizeA(rowLabelSize, 10000.0f, 0.0f, value);
-			const float valueX = itemMax.x - valueSize.x - (40.0f * scale);
-			drawLabelText = TruncateToWidth(rowFont, rowLabelSize, label, std::max(20.0f * scale, valueX - textX - (16.0f * scale)));
-			label = drawLabelText.c_str();
-		} else if (menu_ == Menu::Cheats) {
-			drawLabelText = TruncateToWidth(rowFont, rowLabelSize, label, std::max(20.0f * scale, itemMax.x - textX - (36.0f * scale)));
-			label = drawLabelText.c_str();
-		}
-		const ImVec2 textSize = rowFont->CalcTextSizeA(rowLabelSize, 10000.0f, 0.0f, label);
-		const float textAreaHeight = std::max(1.0f, rowHeight - rowTopPadding);
-		const float textY = itemMin.y + rowTopPadding + (textAreaHeight - textSize.y) * 0.5f;
-		const ImU32 textColor = metadataRow
-			? IM_COL32(165, 165, 165, (int)(235.0f * ease))
-			: (selected ? IM_COL32(255, 255, 255, (int)(255.0f * ease)) : IM_COL32(200, 200, 200, (int)(255.0f * ease)));
-		if (drawCheckbox) {
-			const float boxSize = 18.0f * scale;
-			const float boxX = itemMin.x + 20.0f * scale;
-			const float boxY = itemMin.y + (rowHeight - boxSize) * 0.5f;
-			const ImVec2 boxMin(boxX, boxY);
-			const ImVec2 boxMax(boxX + boxSize, boxY + boxSize);
-			const ImU32 borderColor = selected ? IM_COL32(255, 255, 255, (int)(230.0f * ease)) : IM_COL32(180, 180, 180, (int)(210.0f * ease));
-			const ImU32 fillColor = checkboxChecked ? IM_COL32(230, 230, 230, (int)(245.0f * ease)) : IM_COL32(30, 30, 30, (int)(130.0f * ease));
-			drawList->AddRectFilled(boxMin, boxMax, fillColor, 4.0f * scale);
-			drawList->AddRect(boxMin, boxMax, borderColor, 4.0f * scale, 0, 1.5f * scale);
-			if (checkboxChecked) {
-				const ImU32 checkColor = IM_COL32(40, 40, 40, (int)(255.0f * ease));
-				drawList->AddLine(
-					ImVec2(boxX + 4.0f * scale, boxY + 9.5f * scale),
-					ImVec2(boxX + 7.5f * scale, boxY + 13.0f * scale),
-					checkColor, 2.0f * scale);
-				drawList->AddLine(
-					ImVec2(boxX + 7.5f * scale, boxY + 13.0f * scale),
-					ImVec2(boxX + 14.0f * scale, boxY + 5.0f * scale),
-					checkColor, 2.0f * scale);
-			}
-		}
-		drawList->AddText(rowFont, rowLabelSize, ImVec2(textX, textY), textColor, label);
-		if (drawLoader) {
-			const float loaderSize = 24.0f * scale;
-			const ImVec2 loaderCenter(itemMax.x - 34.0f * scale, itemMin.y + rowHeight * 0.5f);
-			const float angle = loaderTimer_ * 6.2831853f * 1.6f;
-			if (loaderTexture_) {
-				const ImTextureID textureId = ImGui_ImplThin3d_AddTextureTemp(loaderTexture_);
-				DrawRotatingImage(drawList, textureId, loaderCenter, loaderSize, angle,
-					IM_COL32(255, 255, 255, (int)(230.0f * ease)));
-			} else {
-				DrawFallbackSpinner(drawList, loaderCenter, loaderSize * 0.48f, angle, scale, ease);
-			}
-		}
-		if (value) {
-			const ImVec2 valueSize = rowFont->CalcTextSizeA(rowLabelSize, 10000.0f, 0.0f, value);
-			const float valueX = itemMax.x - valueSize.x - (40.0f * scale);
-			drawList->AddText(rowFont, rowLabelSize, ImVec2(valueX, textY), textColor, value);
-
-			if (selected) {
-				const float arrowSize = 12.0f * scale;
-				const float arrowY = itemMin.y + (rowHeight - arrowSize) * 0.5f;
-				const float leftArrowX = valueX - arrowSize - (12.0f * scale);
-				drawList->AddTriangleFilled(
-					ImVec2(leftArrowX, arrowY + arrowSize * 0.5f),
-					ImVec2(leftArrowX + arrowSize, arrowY),
-					ImVec2(leftArrowX + arrowSize, arrowY + arrowSize),
-					textColor);
-
-				const float rightArrowX = valueX + valueSize.x + (12.0f * scale);
-				drawList->AddTriangleFilled(
-					ImVec2(rightArrowX + arrowSize, arrowY + arrowSize * 0.5f),
-					ImVec2(rightArrowX, arrowY),
-					ImVec2(rightArrowX, arrowY + arrowSize),
-					textColor);
-			}
-		}
-		itemY += rowHeight;
-	}
-
-	if (menu_ == Menu::Cheats && totalItemCount > visibleItemCount) {
-		const float trackWidth = 4.0f * scale;
-		const float trackMargin = 8.0f * scale;
-		const float trackX = menuMax.x - trackMargin - trackWidth;
-		const float trackY = menuPos.y + trackMargin;
-		const float trackHeight = menuSize.y - trackMargin * 2.0f;
-		drawList->AddRectFilled(ImVec2(trackX, trackY), ImVec2(trackX + trackWidth, trackY + trackHeight),
-			IM_COL32(80, 80, 80, (int)(180.0f * ease)), trackWidth * 0.5f);
-		const float thumbHeight = std::max(24.0f * scale, trackHeight * ((float)visibleItemCount / (float)totalItemCount));
-		const float scrollRange = std::max(1.0f, (float)(totalItemCount - visibleItemCount));
-		const float thumbY = trackY + (trackHeight - thumbHeight) * ((float)firstItem / scrollRange);
-		drawList->AddRectFilled(ImVec2(trackX, thumbY), ImVec2(trackX + trackWidth, thumbY + thumbHeight),
-			IM_COL32(190, 190, 190, (int)(220.0f * ease)), trackWidth * 0.5f);
-	}
 }
 
 void Overlay::DrawHelpers(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease) {
@@ -1780,75 +1136,6 @@ void Overlay::DrawHelpers(ImDrawList *drawList, ImVec2 displaySize, float scale,
 		const ImVec2 textSize = font->CalcTextSizeA(fontSize, 10000.0f, 0.0f, helper.label.c_str());
 		drawList->AddText(font, fontSize, ImVec2(cursorX, centerY - textSize.y * 0.5f), textColor, helper.label.c_str());
 		cursorX += textSize.x + itemSpacing;
-	}
-}
-
-void Overlay::DrawStatus(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease, float deltaTime) {
-	UpdateBattery(deltaTime);
-
-	std::time_t now = std::time(nullptr);
-	std::tm *localTime = std::localtime(&now);
-	char timeText[16] = "00:00";
-	if (localTime) {
-		std::strftime(timeText, sizeof(timeText), "%H:%M", localTime);
-	}
-
-	ImFont *font = ImGui::GetFont();
-	const float barHeight = 50.0f * scale;
-	const float topMargin = 32.0f * scale;
-	const float sideMargin = 32.0f * scale;
-	const float itemSpacing = 20.0f * scale;
-	const float padding = 20.0f * scale;
-	const float fontSize = ImGui::GetFontSize();
-
-	float totalWidth = font->CalcTextSizeA(fontSize, 10000.0f, 0.0f, timeText).x + padding * 2.0f;
-	if (psmReady_) {
-		totalWidth += itemSpacing + (38.0f * scale);
-	}
-
-	const float barX = displaySize.x - totalWidth - sideMargin;
-	const float barY = topMargin + ((1.0f - ease) * -20.0f * scale);
-	const float centerY = barY + barHeight * 0.5f;
-	float cursorX = barX + padding;
-	const ImU32 textColor = IM_COL32(200, 200, 200, (int)(255.0f * ease));
-
-	drawList->AddText(font, fontSize, ImVec2(cursorX, centerY - fontSize * 0.5f), textColor, timeText);
-	cursorX += font->CalcTextSizeA(fontSize, 10000.0f, 0.0f, timeText).x;
-	if (!psmReady_) {
-		return;
-	}
-
-	cursorX += itemSpacing;
-	const float bodyWidth = 32.0f * scale;
-	const float bodyHeight = 20.0f * scale;
-	const float tipWidth = 4.0f * scale;
-	const float tipHeight = 10.0f * scale;
-	const ImVec2 bodyMin(cursorX, centerY - bodyHeight * 0.5f);
-	const ImVec2 bodyMax(bodyMin.x + bodyWidth, bodyMin.y + bodyHeight);
-	drawList->AddRect(bodyMin, bodyMax, textColor, 3.0f * scale, 0, 2.0f * scale);
-	drawList->AddRectFilled(
-		ImVec2(bodyMax.x, bodyMin.y + (bodyHeight - tipHeight) * 0.5f),
-		ImVec2(bodyMax.x + tipWidth, bodyMin.y + (bodyHeight + tipHeight) * 0.5f),
-		textColor, 2.0f * scale, ImDrawFlags_RoundCornersRight);
-
-	const float pct = std::clamp((float)batteryLevel_ / 100.0f, 0.0f, 1.0f);
-	if (pct > 0.0f) {
-		const float pad = 4.0f * scale;
-		const ImVec2 fillMin(bodyMin.x + pad, bodyMin.y + pad);
-		const ImVec2 fillMax(fillMin.x + (bodyWidth - pad * 2.0f) * pct, bodyMax.y - pad);
-		const ImU32 fillColor = charging_ ? IM_COL32(255, 210, 90, (int)(255.0f * ease)) : IM_COL32(200, 200, 200, (int)(255.0f * ease));
-		drawList->AddRectFilled(fillMin, fillMax, fillColor, 1.5f * scale);
-	}
-
-	if (charging_) {
-		const ImVec2 center((bodyMin.x + bodyMax.x) * 0.5f, (bodyMin.y + bodyMax.y) * 0.5f);
-		drawList->PathLineTo(ImVec2(center.x + 1.0f * scale, center.y - 6.0f * scale));
-		drawList->PathLineTo(ImVec2(center.x - 3.0f * scale, center.y));
-		drawList->PathLineTo(ImVec2(center.x + 0.5f * scale, center.y));
-		drawList->PathLineTo(ImVec2(center.x - 1.5f * scale, center.y + 6.0f * scale));
-		drawList->PathLineTo(ImVec2(center.x + 4.0f * scale, center.y - 1.0f * scale));
-		drawList->PathLineTo(ImVec2(center.x, center.y - 1.0f * scale));
-		drawList->PathFillConvex(IM_COL32(40, 40, 40, (int)(255.0f * ease)));
 	}
 }
 
@@ -1985,9 +1272,6 @@ void Overlay::DrawRAAlerts(Draw::DrawContext *draw, ImDrawList *drawList, ImVec2
 
 void Overlay::DrawUI(float width, float height, float deltaTime) {
 	animTimer_ = std::min(animTimer_ + deltaTime, kOverlayAnimDuration);
-	if (cheatsLoading_) {
-		loaderTimer_ += deltaTime;
-	}
 	const float ease = EaseOutCubic(animTimer_ / kOverlayAnimDuration);
 	ImDrawList *drawList = ImGui::GetForegroundDrawList();
 	const ImVec2 displaySize(width, height);
@@ -2026,9 +1310,6 @@ void Overlay::Render(Draw::DrawContext *draw) {
 	ImGui_ImplThin3d_NewFrame(draw, ComputeOrthoMatrix(orthoW, orthoH, draw->GetDeviceCaps().coordConvention));
 	ImGui::NewFrame();
 	if (visible_) {
-		if (cheatsLoading_) {
-			LoadLoaderTexture(draw);
-		}
 		DrawUI(width, height, io.DeltaTime);
 	}
 	DrawRAAlerts(draw, ImGui::GetForegroundDrawList(), ImVec2(width, height), scale, io.DeltaTime);

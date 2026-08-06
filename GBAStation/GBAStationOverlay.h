@@ -86,27 +86,16 @@ private:
 
 	int ItemCount() const;
 	int QuickMenuStorageIndex(int visibleIndex) const;
-	void UpdateBattery(float deltaTime);
 	void DrawUI(float width, float height, float deltaTime);
 	void DrawBackground(::ImDrawList *drawList, ::ImVec2 displaySize, float ease);
-	void DrawTitle(::ImDrawList *drawList, ::ImVec2 displaySize, float scale, float ease);
 	void DrawMenu(::ImDrawList *drawList, ::ImVec2 displaySize, float scale, float ease);
-	void DrawSocialArea(::ImDrawList *drawList, ::ImVec2 displaySize, float scale, float ease);
 	void DrawHelpers(::ImDrawList *drawList, ::ImVec2 displaySize, float scale, float ease);
-	void DrawStatus(::ImDrawList *drawList, ::ImVec2 displaySize, float scale, float ease, float deltaTime);
 	void DrawRAAlerts(Draw::DrawContext *draw, ::ImDrawList *drawList, ::ImVec2 displaySize, float scale, float deltaTime);
 	void CycleSetting(int direction);
 	void ActivateTab(int tab);
 	void ApplyDisplaySettings(bool save);
-	void LoadSocial(Draw::DrawContext *draw);
-	bool LoadAvatarTextureFromFile(Draw::DrawContext *draw, const char *path);
-	bool LoadAvatarTextureFromMemory(Draw::DrawContext *draw, const unsigned char *data, size_t size, const char *tag);
-	void ReleaseAvatarTexture();
 	Draw::Texture *LoadRAIconTexture(Draw::DrawContext *draw);
-	Draw::Texture *LoadLoaderTexture(Draw::DrawContext *draw);
 	void ReleaseRAIconTexture();
-	void ReleaseLoaderTexture();
-	std::string TitleText() const;
 	void ExecuteSelection();
 
 	LogCallback log_;
@@ -138,19 +127,9 @@ private:
 	int cheatVerticalNavDir_ = 0;
 	int cheatHorizontalNavDir_ = 0;
 	float animTimer_ = 0.0f;
-	float loaderTimer_ = 0.0f;
 	std::string title_;
-	std::string nickname_ = "Player 1";
-	Draw::Texture *avatarTexture_ = nullptr;
 	Draw::Texture *raIconTexture_ = nullptr;
-	Draw::Texture *loaderTexture_ = nullptr;
-	int avatarWidth_ = 0;
-	int avatarHeight_ = 0;
 	ImGuiContext *context_ = nullptr;
-	bool psmReady_ = false;
-	u32 batteryLevel_ = 100;
-	bool charging_ = false;
-	float batteryTimer_ = 0.0f;
 };
 
 }  // namespace GBAStation
