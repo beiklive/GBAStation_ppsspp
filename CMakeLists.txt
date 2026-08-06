@@ -2658,6 +2658,18 @@ list(APPEND CoreExtraLibs armips)
 #	target_link_libraries(native X11-xcb X11)
 #endif()
 
+# The Switch toolchain is neither WIN32 nor UNIX to CMake.  Upstream glslang
+# consequently skips this target even though its glslang archive still links
+# against -lOSDependent.  Build the Unix implementation explicitly.
+if(USE_LIBNX AND SWITCH_VULKAN_ONLY AND NOT TARGET OSDependent)
+	add_library(OSDependent STATIC
+		ext/glslang/glslang/OSDependent/Unix/ossource.cpp
+		ext/glslang/glslang/OSDependent/osinclude.h
+	)
+	set_property(TARGET OSDependent PROPERTY POSITION_INDEPENDENT_CODE ON)
+	target_link_libraries(OSDependent PRIVATE pthread)
+endif()
+
 set(GlslangLibs glslang OGLCompiler SPIRV spirv-cross-glsl)
 
 if(TARGET OSDependent)
