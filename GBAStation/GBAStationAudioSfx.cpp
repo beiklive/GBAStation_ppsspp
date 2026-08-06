@@ -189,6 +189,19 @@ void AudioSfx::SynthesizeUiSounds() {
 			LogMessage(log_, "GBAStation sfx UI sound unavailable %s", kUiFiles[s]);
 			continue;
 		}
+		// Soften the harsh 3.7 kHz focus tick: a one-pole low-pass over the
+		// clip.  The 3DS sinks the same WAV through audout's own low-pass;
+		// feeding it to the raw 48 kHz PSP output makes it shrill.
+		if (s == 0) {
+			float l = 0.0f, r = 0.0f;
+			constexpr float kAlpha = 0.45f;
+			for (size_t i = 0; i < clip.samples.size(); i += 2) {
+				l += kAlpha * ((float)clip.samples[i] - l);
+				r += kAlpha * ((float)clip.samples[i + 1] - r);
+				clip.samples[i] = (s16)std::clamp((int)l, -32768, 32767);
+				clip.samples[i + 1] = (s16)std::clamp((int)r, -32768, 32767);
+			}
+		}
 		uiSamples_[s] = std::move(clip.samples);
 	}
 	uiSampleRate_ = kUiRate;

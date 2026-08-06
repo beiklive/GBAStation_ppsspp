@@ -556,8 +556,9 @@ void Overlay::ReleaseFocusTexture() {
 }
 
 void Overlay::DrawFlowBorder(ImDrawList *drawList, float x, float y, float w, float h, float thickness) {
+	const float rounding = 8.0f * ImGui::GetIO().FontGlobalScale;
 	if (!focusTexture_) {
-		drawList->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(79, 179, 255, 255), 0.0f, 0, 2.0f);
+		drawList->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(79, 179, 255, 255), rounding, 0, 2.0f);
 		return;
 	}
 	const float borderWidth = std::max(4.0f, thickness * 2.0f);
@@ -592,6 +593,13 @@ void Overlay::DrawFlowBorder(ImDrawList *drawList, float x, float y, float w, fl
 	const ImVec2 leftMax(x, y + h);
 	drawList->AddImage(tex, leftMin, leftMax,
 		ImVec2(next, 0.0f), ImVec2(uv, 1.0f));
+	// Rounded corners: cap the square flow-frame corners with accent discs so
+	// the focus follows the cell's rounded corners.
+	const ImU32 corner = IM_COL32(79, 179, 255, 255);
+	drawList->AddCircleFilled(ImVec2(x + rounding, y + rounding), rounding, corner, 16);
+	drawList->AddCircleFilled(ImVec2(x + w - rounding, y + rounding), rounding, corner, 16);
+	drawList->AddCircleFilled(ImVec2(x + rounding, y + h - rounding), rounding, corner, 16);
+	drawList->AddCircleFilled(ImVec2(x + w - rounding, y + h - rounding), rounding, corner, 16);
 }
 
 void Overlay::Shutdown() {
@@ -1172,7 +1180,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 				drawList->AddRect(itemMin, itemMax, focusBorder, 0.0f, 0, 1.0f * scale);
 			}
 		}
-		const float textY = y + itemH * 0.5f - 21.0f * scale * 0.5f;
+		const float textY = y + itemH * 0.5f - 21.0f * scale * 0.43f;
 		char iconBuf[8];
 		EncodeUtf8(iconBuf, icons[i]);
 		drawList->AddText(font, 25.0f * scale, ImVec2(sidebarX + 34.0f * scale, y + itemH * 0.5f - 12.5f * scale),
@@ -1221,27 +1229,55 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		} else {
 			drawList->AddRect(rowMin, rowMax, rowBorder, 0.0f, 0, 1.0f * scale);
 		}
-		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 24.0f * scale, y + rowH * 0.5f - 20.0f * scale * 0.5f),
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 24.0f * scale, y + rowH * 0.5f - 20.0f * scale * 0.43f),
 			selector ? cyan : (focused ? white : muted), iconUtf8);
-		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 46.0f * scale, y + rowH * 0.5f - 20.0f * scale * 0.5f),
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 46.0f * scale, y + rowH * 0.5f - 20.0f * scale * 0.43f),
 			focused ? white : muted, label.c_str());
 		if (selector) {
 			// LR value selector: L / value / R like the 3DS page.
 			char iconL[8], iconR[8];
 			EncodeUtf8(iconL, 0xE0E4);
 			EncodeUtf8(iconR, 0xE0E5);
-			const float centerY = y + rowH * 0.5f;
-			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 194.0f * scale, y + rowH * 0.5f - 26.0f * scale * 0.5f),
+			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 208.0f * scale, y + rowH * 0.5f - 26.0f * scale * 0.43f),
 				cyan, iconL);
-			const float valueW = font->CalcTextSizeA(18.0f * scale, 10000.0f, 0.0f, value.c_str()).x;
-			drawList->AddText(font, 18.0f * scale,
-				ImVec2(contentX + contentW - 110.0f * scale - valueW * 0.5f, y + rowH * 0.5f - 18.0f * scale * 0.5f),
-				cyan, value.c_str());
-			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 24.0f * scale, y + rowH * 0.5f - 26.0f * scale * 0.5f),
+			// Value with truncation + focus-scroll for long text.
+			const float valueSize = 18.0f * scale;
+			const float valueCenterX = contentX + contentW - 122.0f * scale;
+			const float valueMaxW = 86.0f * scale;
+			const float valueW = font->CalcTextSizeA(valueSize, 10000.0f, 0.0f, value.c_str()).x;
+			if (valueW <= valueMaxW) {
+				drawList->AddText(font, valueSize,
+					ImVec2(valueCenterX - valueW * 0.5f, y + rowH * 0.5f - valueSize * 0.43f),
+					cyan, value.c_str());
+			} else if (focused) {
+				// Focus-scroll: slide the text through the fixed window.
+				const float scroll = std::fmod((float)(CurrentTimeMs() % 4000) / 1000.0f, 1.0f);
+				const float travel = valueW + valueMaxW;
+				const float offset = (valueW + valueMaxW) * 0.5f - scroll * travel;
+				drawList->PushClipRect(ImVec2(valueCenterX - valueMaxW * 0.5f, y),
+					ImVec2(valueCenterX + valueMaxW * 0.5f, y + rowH), true);
+				drawList->AddText(font, valueSize,
+					ImVec2(valueCenterX - valueW * 0.5f + offset, y + rowH * 0.5f - valueSize * 0.43f),
+					cyan, value.c_str());
+				drawList->PopClipRect();
+			} else {
+				// Truncate with an ellipsis when idle.
+				std::string clipped = value;
+				while (!clipped.empty() &&
+					font->CalcTextSizeA(valueSize, 10000.0f, 0.0f, (clipped + "…").c_str()).x > valueMaxW) {
+					clipped.pop_back();
+				}
+				clipped += "…";
+				const float cw = font->CalcTextSizeA(valueSize, 10000.0f, 0.0f, clipped.c_str()).x;
+				drawList->AddText(font, valueSize,
+					ImVec2(valueCenterX - cw * 0.5f, y + rowH * 0.5f - valueSize * 0.43f),
+					cyan, clipped.c_str());
+			}
+			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 38.0f * scale, y + rowH * 0.5f - 26.0f * scale * 0.43f),
 				cyan, iconR);
 		} else {
 			const float valueW = font->CalcTextSizeA(18.0f * scale, 10000.0f, 0.0f, value.c_str()).x;
-			drawList->AddText(font, 18.0f * scale, ImVec2(contentX + contentW - valueW - 18.0f * scale, y + rowH * 0.5f - 18.0f * scale * 0.5f),
+			drawList->AddText(font, 18.0f * scale, ImVec2(contentX + contentW - valueW - 18.0f * scale, y + rowH * 0.5f - 18.0f * scale * 0.43f),
 				cyan, value.c_str());
 		}
 	};
@@ -1253,12 +1289,16 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		// focused cell is kept centred inside [viewTop, viewBottom].
 		const int total = Ppsspp::SaveStateSlotCount;
 		constexpr int kColumns = 2;
-		constexpr int kRows = 5;
 		const float cellW = (contentW - 14.0f * scale) * 0.5f;
-		const float cellH = 88.0f * scale;
+		const float cellH = 112.0f * scale;
 		const float cellGapX = 14.0f * scale;
-		const float cellGapY = 8.0f * scale;
-		const int gridH = kRows;
+		const float cellGapY = 10.0f * scale;
+		const int gridH = (total + kColumns - 1) / kColumns;
+		// Viewport is [viewTop, viewBottom]; render one row past the visible
+		// window so the selection can scroll (focus stays centred).
+		const float viewportH = viewBottom - viewTop;
+		const int visibleRows = std::max(1, (int)(viewportH / (cellH + cellGapY)));
+		const int kRows = std::min(gridH, visibleRows + 1);
 		const int selectedRow = selection_ / kColumns;
 		const int firstRow = std::clamp(selectedRow - kRows / 2, 0, std::max(0, gridH - kRows));
 		for (int r = 0; r < kRows; ++r) {
@@ -1270,34 +1310,61 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 				}
 				const float x = contentX + c * (cellW + cellGapX);
 				const float y = viewTop + r * (cellH + cellGapY);
+				if (y + cellH < viewTop || y > viewBottom) {
+					continue;
+				}
 				const bool focused = inContent && slot == selection_;
 				const ImVec2 cellMin(x, y), cellMax(x + cellW, y + cellH);
-				drawList->AddRectFilled(cellMin, cellMax, focused ? focusBg : rowBg, 6.0f * scale);
+				drawList->AddRectFilled(cellMin, cellMax, focused ? focusBg : rowBg, 8.0f * scale);
 				if (focused) {
 					if (focusTexture_) {
 						DrawFlowBorder(drawList, x, y, cellW, cellH, 3.0f * scale);
 					} else {
-						drawList->AddRect(cellMin, cellMax, IM_COL32(79, 179, 255, (int)(255.0f * ease)), 6.0f * scale, 0, 2.0f * scale);
+						drawList->AddRect(cellMin, cellMax, IM_COL32(79, 179, 255, (int)(255.0f * ease)), 8.0f * scale, 0, 2.0f * scale);
 					}
 				} else {
-					drawList->AddRect(cellMin, cellMax, rowBorder, 6.0f * scale, 0, 1.0f * scale);
+					drawList->AddRect(cellMin, cellMax, rowBorder, 8.0f * scale, 0, 1.0f * scale);
 				}
-				// Icon block on the left, two-line text beside it (launcher style).
+				// Snapshot placeholder on the right half (screenshots land
+				// here later, mirroring the launcher's save-state items).
+				const float snapX = x + cellW * 0.55f;
+				const float snapW = cellW * 0.45f - 10.0f * scale;
+				const float snapY = y + 8.0f * scale;
+				const float snapH = cellH - 16.0f * scale;
+				drawList->AddRectFilled(ImVec2(snapX, snapY), ImVec2(snapX + snapW, snapY + snapH),
+					IM_COL32(255, 255, 255, focused ? 18 : 10), 6.0f * scale);
+				drawList->AddRect(ImVec2(snapX, snapY), ImVec2(snapX + snapW, snapY + snapH),
+					IM_COL32(255, 255, 255, focused ? 60 : 34), 6.0f * scale, 0, 1.0f * scale);
+				char snapIcon[8];
+				EncodeUtf8(snapIcon, 0xE413);
+				const float snapIconSize = 30.0f * scale;
+				drawList->AddText(font, snapIconSize,
+					ImVec2(snapX + snapW * 0.5f - snapIconSize * 0.5f,
+						snapY + snapH * 0.5f - snapIconSize * 0.43f),
+					IM_COL32(160, 200, 230, (int)(110.0f * ease)), snapIcon);
+				// Left half: icon + title + status.
 				const float iconX = x + 14.0f * scale;
 				const float iconCenterY = y + cellH * 0.5f;
 				char icon[8];
-				EncodeUtf8(icon, slotInUse_[slot] ? 0xE161 : 0xE2C7);
-				drawList->AddText(font, 34.0f * scale, ImVec2(iconX, iconCenterY - 34.0f * scale * 0.5f),
+				EncodeUtf8(icon, 0xE161);
+				drawList->AddText(font, 34.0f * scale, ImVec2(iconX, iconCenterY - 34.0f * scale * 0.43f),
 					slotInUse_[slot] ? (focused ? white : cyan) : muted, icon);
 				const float textX = iconX + 44.0f * scale;
 				const std::string title = "存档槽 " + std::to_string(slot + 1);
-				drawList->AddText(font, 20.0f * scale, ImVec2(textX, y + 22.0f * scale),
+				drawList->AddText(font, 20.0f * scale, ImVec2(textX, y + 24.0f * scale),
 					focused ? white : muted, title.c_str());
 				const char *status = slotInUse_[slot] ? "已有存档" : "空存档槽";
-				drawList->AddText(font, 16.0f * scale, ImVec2(textX, y + cellH - 36.0f * scale),
+				drawList->AddText(font, 16.0f * scale, ImVec2(textX, y + cellH - 40.0f * scale),
 					slotInUse_[slot] ? cyan : muted, status);
 			}
 		}
+		// Scroll position hint above the footer (右下角提示文字上方).
+		const float hintY = viewBottom - 26.0f * scale;
+		const std::string scrollHint = std::to_string(selectedRow + 1) + " / " + std::to_string(gridH);
+		const ImVec2 hintSize = font->CalcTextSizeA(16.0f * scale, 10000.0f, 0.0f, scrollHint.c_str());
+		drawList->AddText(font, 16.0f * scale,
+			ImVec2(contentX + contentW - hintSize.x, hintY),
+			IM_COL32(184, 204, 224, (int)(160.0f * ease)), scrollHint.c_str());
 	} else if (menu_ == Menu::Cheats) {
 		if (cheats_.empty()) {
 			drawList->AddText(font, 21.0f * scale, ImVec2(contentX, viewTop + 28.0f * scale), muted, "当前游戏没有可用金手指。");
@@ -1344,7 +1411,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 				const int index = first + row;
 				EncodeUtf8(icon, rowIcons[index]);
 				drawRow(row, inContent && index == selection_, icon, labels[index],
-					settingValue(index), index == 0 || index == 6 || index == 7);
+					settingValue(index), true);
 			}
 		} else {
 			// 画面设置: resolution moved here from the core page.
