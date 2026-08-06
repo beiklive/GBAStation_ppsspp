@@ -16,6 +16,15 @@ static const ImWchar kGBAStationMaterialRanges[] = {
 	0,
 };
 
+// ABXY / L / R key-glyph block of the Nintendo shared font.  These codepoints
+// overlap the Material Icons private-use area, and ImGui keeps the glyph of
+// whichever font is packed first — so this range must be registered on the
+// base (shared) fonts, which are always added before the Material font.
+static const ImWchar kGBAStationNintendoKeyRanges[] = {
+	0xE0E0, 0xE0E5,
+	0,
+};
+
 static const ImWchar *GetGBAStationMenuGlyphRanges(ImGuiIO &io) {
 	static ImVector<ImWchar> ranges;
 	if (!ranges.empty())
@@ -23,6 +32,7 @@ static const ImWchar *GetGBAStationMenuGlyphRanges(ImGuiIO &io) {
 
 	ImFontGlyphRangesBuilder builder;
 	builder.AddRanges(io.Fonts->GetGlyphRangesDefault());
+	builder.AddRanges(kGBAStationNintendoKeyRanges);
 	// Core option names are not limited to the usual 2,500 simplified glyphs.
 	// Keep the full shared-font range so the in-game menu never falls back to
 	// question marks for a valid Chinese setting name.

@@ -910,8 +910,10 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 		const int itemCount = ItemCount();
 		bool navUp = (pressed & HidNpadButton_Up) != 0;
 		bool navDown = (pressed & HidNpadButton_Down) != 0;
-		bool navLeft = (pressed & HidNpadButton_Left) != 0;
-		bool navRight = (pressed & HidNpadButton_Right) != 0;
+		// The 3DS menu treats the physical L / R shoulders as Left / Right so
+		// the LR value selectors can be adjusted without the d-pad.
+		bool navLeft = (pressed & (HidNpadButton_Left | HidNpadButton_L)) != 0;
+		bool navRight = (pressed & (HidNpadButton_Right | HidNpadButton_R)) != 0;
 		if (menu_ == Menu::Cheats) {
 			navUp = false;
 			navDown = false;
@@ -1144,7 +1146,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 				drawList->AddRect(itemMin, itemMax, focusBorder, 0.0f, 0, 1.0f * scale);
 			}
 		}
-		const float textY = y + itemH * 0.5f + fontSize * 0.12f * scale;
+		const float textY = y + itemH * 0.66f - 21.0f * scale * 0.86f;
 		char iconBuf[8];
 		EncodeUtf8(iconBuf, icons[i]);
 		drawList->AddText(font, 25.0f * scale, ImVec2(sidebarX + 34.0f * scale, y + itemH * 0.5f - 12.5f * scale),
@@ -1193,9 +1195,9 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		} else {
 			drawList->AddRect(rowMin, rowMax, rowBorder, 0.0f, 0, 1.0f * scale);
 		}
-		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 24.0f * scale, y + rowH * 0.5f - 10.0f * scale),
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 24.0f * scale, y + rowH * 0.66f - 20.0f * scale * 0.86f),
 			selector ? cyan : (focused ? white : muted), iconUtf8);
-		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 46.0f * scale, y + rowH * 0.5f + 12.0f * scale),
+		drawList->AddText(font, 20.0f * scale, ImVec2(contentX + 46.0f * scale, y + rowH * 0.66f - 20.0f * scale * 0.86f),
 			focused ? white : muted, label.c_str());
 		if (selector) {
 			// LR value selector: L / value / R like the 3DS page.
@@ -1203,17 +1205,17 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 			EncodeUtf8(iconL, 0xE0E4);
 			EncodeUtf8(iconR, 0xE0E5);
 			const float centerY = y + rowH * 0.5f;
-			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 194.0f * scale, centerY - 13.0f * scale),
+			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 194.0f * scale, y + rowH * 0.66f - 26.0f * scale * 0.86f),
 				cyan, iconL);
 			const float valueW = font->CalcTextSizeA(18.0f * scale, 10000.0f, 0.0f, value.c_str()).x;
 			drawList->AddText(font, 18.0f * scale,
-				ImVec2(contentX + contentW - 110.0f * scale - valueW * 0.5f, centerY + 7.0f * scale),
+				ImVec2(contentX + contentW - 110.0f * scale - valueW * 0.5f, y + rowH * 0.66f - 18.0f * scale * 0.86f),
 				cyan, value.c_str());
-			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 24.0f * scale, centerY - 13.0f * scale),
+			drawList->AddText(font, 26.0f * scale, ImVec2(contentX + contentW - 24.0f * scale, y + rowH * 0.66f - 26.0f * scale * 0.86f),
 				cyan, iconR);
 		} else {
 			const float valueW = font->CalcTextSizeA(18.0f * scale, 10000.0f, 0.0f, value.c_str()).x;
-			drawList->AddText(font, 18.0f * scale, ImVec2(contentX + contentW - valueW - 18.0f * scale, y + rowH * 0.5f + 7.0f * scale),
+			drawList->AddText(font, 18.0f * scale, ImVec2(contentX + contentW - valueW - 18.0f * scale, y + rowH * 0.66f - 18.0f * scale * 0.86f),
 				cyan, value.c_str());
 		}
 	};
@@ -1323,10 +1325,10 @@ void Overlay::DrawHelpers(ImDrawList *drawList, ImVec2 displaySize, float scale,
 	EncodeUtf8(iconB, 0xE0E1);
 	EncodeUtf8(iconA, 0xE0E0);
 	const float baseY = displaySize.y - 42.0f * scale;
-	drawList->AddText(font, 27.0f * scale, ImVec2(1020.0f * scale, baseY - 13.5f * scale), hintColor, iconB);
-	drawList->AddText(font, 19.0f * scale, ImVec2(1042.0f * scale, baseY + 9.0f * scale), hintColor, bLabel);
-	drawList->AddText(font, 27.0f * scale, ImVec2(1152.0f * scale, baseY - 13.5f * scale), hintColor, iconA);
-	drawList->AddText(font, 19.0f * scale, ImVec2(1174.0f * scale, baseY + 9.0f * scale), hintColor, aLabel);
+	drawList->AddText(font, 27.0f * scale, ImVec2(1020.0f * scale, baseY - 27.0f * scale * 0.86f), hintColor, iconB);
+	drawList->AddText(font, 19.0f * scale, ImVec2(1042.0f * scale, baseY - 19.0f * scale * 0.86f), hintColor, bLabel);
+	drawList->AddText(font, 27.0f * scale, ImVec2(1152.0f * scale, baseY - 27.0f * scale * 0.86f), hintColor, iconA);
+	drawList->AddText(font, 19.0f * scale, ImVec2(1174.0f * scale, baseY - 19.0f * scale * 0.86f), hintColor, aLabel);
 }
 
 void Overlay::DrawRAAlerts(Draw::DrawContext *draw, ImDrawList *drawList, ImVec2 displaySize, float scale, float deltaTime) {

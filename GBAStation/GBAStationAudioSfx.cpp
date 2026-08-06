@@ -53,6 +53,84 @@ inline s16 Clamp16(int sample) {
 	return (s16)sample;
 }
 
+// WAV loading borrowed from the 3DS frontend's libnx_sink: RIFF fmt/data chunks,
+// 16-bit PCM mono or stereo, linearly resampled to kUiRate and widened to stereo.
+struct UiClip {
+	std::vector<s16> samples;  // interleaved stereo at kUiRate
+};
+
+u16 ReadU16(const u8 *data) {
+	return (u16)(data[0] | ((u16)data[1] << 8));
+}
+
+u32 ReadU32(const u8 *data) {
+	return (u32)data[0] | ((u32)data[1] << 8) | ((u32)data[2] << 16) | ((u32)data[3] << 24);
+}
+
+bool LoadUiWav(const char *path, UiClip *clip, int outputRate) {
+	FILE *file = fopen(path, "rb");
+	if (!file) {
+		return false;
+	}
+	fseek(file, 0, SEEK_END);
+	const long size = ftell(file);
+	rewind(file);
+	if (size < 44 || size > 4 * 1024 * 1024) {
+		fclose(file);
+		return false;
+	}
+	std::vector<u8> bytes((size_t)size);
+	const bool readOk = fread(bytes.data(), 1, bytes.size(), file) == bytes.size();
+	fclose(file);
+	if (!readOk || memcmp(bytes.data(), "RIFF", 4) != 0 || memcmp(bytes.data() + 8, "WAVE", 4) != 0) {
+		return false;
+	}
+
+	u16 format = 0, channels = 0, bits = 0;
+	u32 sampleRate = 0;
+	const u8 *pcm = nullptr;
+	size_t pcmBytes = 0;
+	for (size_t offset = 12; offset + 8 <= bytes.size();) {
+		const u32 chunkSize = ReadU32(bytes.data() + offset + 4);
+		if (offset + 8 + chunkSize > bytes.size()) {
+			break;
+		}
+		if (memcmp(bytes.data() + offset, "fmt ", 4) == 0 && chunkSize >= 16) {
+			format = ReadU16(bytes.data() + offset + 8);
+			channels = ReadU16(bytes.data() + offset + 10);
+			sampleRate = ReadU32(bytes.data() + offset + 12);
+			bits = ReadU16(bytes.data() + offset + 22);
+		} else if (memcmp(bytes.data() + offset, "data", 4) == 0) {
+			pcm = bytes.data() + offset + 8;
+			pcmBytes = chunkSize;
+		}
+		offset += 8 + chunkSize + (chunkSize & 1u);
+	}
+	if (format != 1 || (channels != 1 && channels != 2) || bits != 16 ||
+		sampleRate == 0 || !pcm || pcmBytes < channels * sizeof(s16)) {
+		return false;
+	}
+
+	const auto *input = reinterpret_cast<const s16 *>(pcm);
+	const size_t inputFrames = pcmBytes / (channels * sizeof(s16));
+	const size_t outputFrames = std::max<size_t>(1, inputFrames * (u32)outputRate / sampleRate);
+	clip->samples.resize(outputFrames * 2);
+	const double sourceStep = (double)sampleRate / (double)outputRate;
+	for (size_t frame = 0; frame < outputFrames; ++frame) {
+		const double source = frame * sourceStep;
+		const size_t first = std::min((size_t)source, inputFrames - 1);
+		const size_t second = std::min(first + 1, inputFrames - 1);
+		const float fraction = (float)(source - first);
+		for (u16 channel = 0; channel < 2; ++channel) {
+			const size_t sourceChannel = channels == 1 ? 0 : channel;
+			const float a = input[first * channels + sourceChannel];
+			const float b = input[second * channels + sourceChannel];
+			clip->samples[frame * 2 + channel] = (s16)((a + (b - a) * fraction) * 0.70f);
+		}
+	}
+	return true;
+}
+
 }  // namespace
 
 AudioSfx &TrophySfx() {
@@ -97,27 +175,23 @@ void AudioSfx::Shutdown() {
 }
 
 void AudioSfx::SynthesizeUiSounds() {
-	// Synthesized UI ticks in the style of the 3DS frontend: a short sine burst
-	// with a fast decay.  Focus is a soft tick, confirm slightly brighter and
-	// longer, cancel a lower dip.
-	constexpr float kFreqs[3] = {1320.0f, 1760.0f, 880.0f};
-	constexpr float kDurations[3] = {0.035f, 0.055f, 0.045f};
-	constexpr float kVolumes[3] = {0.22f, 0.26f, 0.22f};
-	const int rate = 48000;
+	// The 3DS frontend's real UI sound set: SeNaviFocus (focus move),
+	// SeBtnDecide (confirm), SeFooterDecideFinish (back/cancel).
+	constexpr const char *kUiFiles[3] = {
+		"romfs:/assets/sounds/SeNaviFocus.wav",
+		"romfs:/assets/sounds/SeBtnDecide.wav",
+		"romfs:/assets/sounds/SeFooterDecideFinish.wav",
+	};
+	constexpr int kUiRate = 48000;
 	for (int s = 0; s < 3; ++s) {
-		uiSamples_[s].clear();
-		const int count = (int)(kDurations[s] * (float)rate);
-		uiSamples_[s].reserve((size_t)count * 2);
-		for (int i = 0; i < count; ++i) {
-			const float t = (float)i / (float)rate;
-			const float env = std::exp(-t * 55.0f);
-			const float v = std::sin(6.2831853f * kFreqs[s] * t) * kVolumes[s] * env;
-			const s16 sample = (s16)std::clamp((int)(v * 32767.0f), -32768, 32767);
-			uiSamples_[s].push_back(sample);
-			uiSamples_[s].push_back(sample);
+		UiClip clip;
+		if (!LoadUiWav(kUiFiles[s], &clip, kUiRate)) {
+			LogMessage(log_, "GBAStation sfx UI sound unavailable %s", kUiFiles[s]);
+			continue;
 		}
+		uiSamples_[s] = std::move(clip.samples);
 	}
-	uiSampleRate_ = rate;
+	uiSampleRate_ = kUiRate;
 }
 
 void AudioSfx::PlayUiSound(UiSound sound) {
