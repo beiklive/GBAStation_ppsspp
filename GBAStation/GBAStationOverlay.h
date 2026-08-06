@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstddef>
+#include <ctime>
 #include <string>
 #include <vector>
 
@@ -59,7 +60,8 @@ public:
 	bool HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStickY, int rightStickX, int rightStickY,
 		bool menuTogglePressed);
 	void Render(Draw::DrawContext *draw);
-	void SetSaveStateInfo(int currentSlot, const std::array<bool, Ppsspp::SaveStateSlotCount> &slotInUse);
+	void SetSaveStateInfo(int currentSlot, const std::array<bool, Ppsspp::SaveStateSlotCount> &slotInUse,
+		const std::array<time_t, Ppsspp::SaveStateSlotCount> &slotMtime = {});
 	void SetCheatsEnabled(bool enabled);
 	void SetCheatInfo(bool enabled, bool available, const std::vector<CheatMenuEntry> &entries);
 	void ReloadDisplaySettings();
@@ -118,6 +120,7 @@ private:
 	OverlayCommand pendingCommand_;
 	int currentStateSlot_ = 0;
 	std::array<bool, Ppsspp::SaveStateSlotCount> slotInUse_{};
+	std::array<time_t, Ppsspp::SaveStateSlotCount> slotMtime_{};
 	bool cheatsEnabled_ = false;
 	bool cheatsAvailable_ = false;
 	bool cheatsLoading_ = false;
@@ -125,6 +128,8 @@ private:
 	int cheatsLoadingDelayFrames_ = 0;
 	std::vector<CheatMenuEntry> cheats_;
 	u64 lastAnalogNavMs_ = 0;
+	u64 lastDPadNavMs_ = 0;
+	static constexpr u64 kDPadNavRepeatMs = 180;
 	u64 nextCheatVerticalNavMs_ = 0;
 	u64 nextCheatHorizontalNavMs_ = 0;
 	int cheatVerticalNavDir_ = 0;

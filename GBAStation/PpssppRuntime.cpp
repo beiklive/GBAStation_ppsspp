@@ -15,6 +15,9 @@
 #include "GBAStation/GBAStationOverlay.h"
 #include "GBAStation/GBAStationRetroAchievements.h"
 
+#include <sys/stat.h>
+#include <ctime>
+
 #include "Common/CPUDetect.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/VFS/DirectoryReader.h"
@@ -1161,11 +1164,19 @@ void RefreshSaveStateSlots(bool force) {
 	}
 
 	File::CreateFullPath(Path(Paths::PpssppSaveStates));
+	std::array<time_t, Ppsspp::SaveStateSlotCount> slotMtime{};
 	for (int i = 0; i < Ppsspp::SaveStateSlotCount; ++i) {
 		const Path statePath = GetLegacySaveStatePath(i);
-		g_state.saveStateSlots[i] = !statePath.empty() && File::Exists(statePath);
+		const bool exists = !statePath.empty() && File::Exists(statePath);
+		g_state.saveStateSlots[i] = exists;
+		if (exists) {
+			struct stat st{};
+			if (stat(statePath.c_str(), &st) == 0) {
+				slotMtime[i] = st.st_mtime;
+			}
+		}
 	}
-	g_state.overlay.SetSaveStateInfo(g_Config.iCurrentStateSlot, g_state.saveStateSlots);
+	g_state.overlay.SetSaveStateInfo(g_Config.iCurrentStateSlot, g_state.saveStateSlots, slotMtime);
 	g_state.lastSaveStateScanMs = nowMs;
 }
 

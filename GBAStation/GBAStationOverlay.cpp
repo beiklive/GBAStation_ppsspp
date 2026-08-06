@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdio>
+#include <ctime>
 #include <vector>
 #include <utility>
 
@@ -556,7 +557,7 @@ void Overlay::ReleaseFocusTexture() {
 }
 
 void Overlay::DrawFlowBorder(ImDrawList *drawList, float x, float y, float w, float h, float thickness) {
-	const float rounding = 8.0f * ImGui::GetIO().FontGlobalScale;
+	const float rounding = 0.0f;
 	if (!focusTexture_) {
 		drawList->AddRect(ImVec2(x, y), ImVec2(x + w, y + h), IM_COL32(79, 179, 255, 255), rounding, 0, 2.0f);
 		return;
@@ -674,9 +675,11 @@ void Overlay::SetVisible(bool visible) {
 	LogMessage(log_, "GBAStation overlay visible=%d", visible ? 1 : 0);
 }
 
-void Overlay::SetSaveStateInfo(int currentSlot, const std::array<bool, Ppsspp::SaveStateSlotCount> &slotInUse) {
+void Overlay::SetSaveStateInfo(int currentSlot, const std::array<bool, Ppsspp::SaveStateSlotCount> &slotInUse,
+	const std::array<time_t, Ppsspp::SaveStateSlotCount> &slotMtime) {
 	currentStateSlot_ = std::clamp(currentSlot, 0, Ppsspp::SaveStateSlotCount - 1);
 	slotInUse_ = slotInUse;
+	slotMtime_ = slotMtime;
 }
 
 void Overlay::SetCheatsEnabled(bool enabled) {
@@ -922,6 +925,20 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 		// the LR value selectors can be adjusted without the d-pad.
 		bool navLeft = (pressed & (HidNpadButton_Left | HidNpadButton_L)) != 0;
 		bool navRight = (pressed & (HidNpadButton_Right | HidNpadButton_R)) != 0;
+		// Hold-to-repeat for the d-pad: first press fires on the edge, holding
+		// repeats every 180 ms (mirrors the analog stick repeat).
+		const bool heldUp = (buttons & HidNpadButton_Up) != 0;
+		const bool heldDown = (buttons & HidNpadButton_Down) != 0;
+		const u64 nowMs = CurrentTimeMs();
+		if (heldUp && nowMs != 0 && nowMs - lastDPadNavMs_ >= kDPadNavRepeatMs && !(pressed & HidNpadButton_Up)) {
+			navUp = true;
+		}
+		if (heldDown && nowMs != 0 && nowMs - lastDPadNavMs_ >= kDPadNavRepeatMs && !(pressed & HidNpadButton_Down)) {
+			navDown = true;
+		}
+		if ((pressed & HidNpadButton_Up) || (pressed & HidNpadButton_Down)) {
+			lastDPadNavMs_ = nowMs;
+		}
 		if (menu_ == Menu::Cheats) {
 			navUp = false;
 			navDown = false;
@@ -990,24 +1007,24 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 		}
 
 		if (sidebarFocused_) {
-			if (navUp) { ActivateTab((tabSelection_ + 7) % 8); TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus); }
-			if (navDown) { ActivateTab((tabSelection_ + 1) % 8); TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus); }
+			if (navUp) { ActivateTab((tabSelection_ + 7) % 8);  }
+			if (navDown) { ActivateTab((tabSelection_ + 1) % 8);  }
 			if (navRight && (menu_ == Menu::SaveStates || menu_ == Menu::Cheats || menu_ == Menu::Settings)) {
 				sidebarFocused_ = false;
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				
 			}
 			if (pressed & HidNpadButton_A) {
-				if (tabSelection_ == 0) { SetVisible(false); TrophySfx().PlayUiSound(AudioSfx::UiSound::Confirm); }
-				else if (tabSelection_ == 6) { pendingCommand_ = { OverlayAction::Reset, 0 }; SetVisible(false); TrophySfx().PlayUiSound(AudioSfx::UiSound::Confirm); }
-				else if (tabSelection_ == 7) { exitRequested_ = true; TrophySfx().PlayUiSound(AudioSfx::UiSound::Confirm); }
+				if (tabSelection_ == 0) { SetVisible(false);  }
+				else if (tabSelection_ == 6) { pendingCommand_ = { OverlayAction::Reset, 0 }; SetVisible(false);  }
+				else if (tabSelection_ == 7) { exitRequested_ = true;  }
 				else if (menu_ == Menu::SaveStates || menu_ == Menu::Cheats || menu_ == Menu::Settings) {
 					sidebarFocused_ = false;
-					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+					
 				}
 			}
 			if (pressed & HidNpadButton_B) {
 				SetVisible(false);
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Cancel);
+				
 			}
 			return true;
 		}
@@ -1015,19 +1032,19 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 		if (menu_ == Menu::Cheats) {
 			if (navUp) {
 				MoveCheatSelectionWrapped(selection_, cheats_, -1);
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				
 			}
 			if (navDown) {
 				MoveCheatSelectionWrapped(selection_, cheats_, 1);
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				
 			}
 			if (navLeft) {
 				MoveCheatSelectionWrapped(selection_, cheats_, -kCheatPageStep);
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				
 			}
 			if (navRight) {
 				MoveCheatSelectionWrapped(selection_, cheats_, kCheatPageStep);
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				
 			}
 		} else {
 			if (menu_ == Menu::SaveStates) {
@@ -1036,11 +1053,11 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 				constexpr int kColumns = 2;
 				if (navUp && itemCount > 0) {
 					selection_ = (selection_ + itemCount - kColumns) % itemCount;
-					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+					
 				}
 				if (navDown && itemCount > 0) {
 					selection_ = (selection_ + kColumns) % itemCount;
-					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+					
 				}
 				if (navLeft && itemCount > 0) {
 					const int col = selection_ % kColumns;
@@ -1048,20 +1065,20 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 					if (col == 0 && selection_ >= itemCount) {
 						selection_ = itemCount - 1;
 					}
-					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+					
 				}
 				if (navRight && itemCount > 0) {
 					selection_ = (selection_ + 1) % itemCount;
-					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+					
 				}
 			} else {
 				if (navUp && itemCount > 0) {
 					selection_ = (selection_ + itemCount - 1) % itemCount;
-					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+					
 				}
 				if (navDown && itemCount > 0) {
 					selection_ = (selection_ + 1) % itemCount;
-					TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+					
 				}
 			}
 		}
@@ -1069,16 +1086,16 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 			settingsSelection_ = selection_;
 			if (navLeft) {
 				CycleSetting(-1);
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				
 			}
 			if (navRight) {
 				CycleSetting(1);
-				TrophySfx().PlayUiSound(AudioSfx::UiSound::Focus);
+				
 			}
 		}
 		if (pressed & HidNpadButton_A) {
 			ExecuteSelection();
-			TrophySfx().PlayUiSound(AudioSfx::UiSound::Confirm);
+			
 		}
 		if (menu_ == Menu::Quick && (pressed & HidNpadButton_Minus) && !(buttons & HidNpadButton_Plus)) {
 			pendingCommand_ = { OverlayAction::Reset, 0 };
@@ -1091,7 +1108,7 @@ bool Overlay::HandleInput(u64 buttons, u64 pressed, int leftStickX, int leftStic
 			} else {
 				SetVisible(false);
 			}
-			TrophySfx().PlayUiSound(AudioSfx::UiSound::Cancel);
+			
 		}
 	}
 
@@ -1251,7 +1268,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 					cyan, value.c_str());
 			} else if (focused) {
 				// Focus-scroll: slide the text through the fixed window.
-				const float scroll = std::fmod((float)(CurrentTimeMs() % 4000) / 1000.0f, 1.0f);
+				const float scroll = std::fmod((float)(CurrentTimeMs() % 8000) / 1000.0f, 1.0f);
 				const float travel = valueW + valueMaxW;
 				const float offset = (valueW + valueMaxW) * 0.5f - scroll * travel;
 				drawList->PushClipRect(ImVec2(valueCenterX - valueMaxW * 0.5f, y),
@@ -1264,10 +1281,10 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 				// Truncate with an ellipsis when idle.
 				std::string clipped = value;
 				while (!clipped.empty() &&
-					font->CalcTextSizeA(valueSize, 10000.0f, 0.0f, (clipped + "…").c_str()).x > valueMaxW) {
+					font->CalcTextSizeA(valueSize, 10000.0f, 0.0f, (clipped + "...").c_str()).x > valueMaxW) {
 					clipped.pop_back();
 				}
-				clipped += "…";
+				clipped += "...";
 				const float cw = font->CalcTextSizeA(valueSize, 10000.0f, 0.0f, clipped.c_str()).x;
 				drawList->AddText(font, valueSize,
 					ImVec2(valueCenterX - cw * 0.5f, y + rowH * 0.5f - valueSize * 0.43f),
@@ -1284,9 +1301,8 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 
 	const bool inContent = !sidebarFocused_;
 	if (menu_ == Menu::SaveStates) {
-		// Two-column scrolling grid of save slots (like the launcher's
-		// GameMenuView): each cell shows an icon + slot name + status, and the
-		// focused cell is kept centred inside [viewTop, viewBottom].
+		// Two-column scrolling grid of save slots: snapshot thumbnail on the
+		// left, slot name + save time on the right.
 		const int total = Ppsspp::SaveStateSlotCount;
 		constexpr int kColumns = 2;
 		const float cellW = (contentW - 14.0f * scale) * 0.5f;
@@ -1294,11 +1310,10 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		const float cellGapX = 14.0f * scale;
 		const float cellGapY = 10.0f * scale;
 		const int gridH = (total + kColumns - 1) / kColumns;
-		// Viewport is [viewTop, viewBottom]; render one row past the visible
-		// window so the selection can scroll (focus stays centred).
+		// Visible rows fit the viewport; the focused row scrolls to centre.
 		const float viewportH = viewBottom - viewTop;
 		const int visibleRows = std::max(1, (int)(viewportH / (cellH + cellGapY)));
-		const int kRows = std::min(gridH, visibleRows + 1);
+		const int kRows = std::min(gridH, visibleRows);
 		const int selectedRow = selection_ / kColumns;
 		const int firstRow = std::clamp(selectedRow - kRows / 2, 0, std::max(0, gridH - kRows));
 		for (int r = 0; r < kRows; ++r) {
@@ -1320,15 +1335,14 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 					if (focusTexture_) {
 						DrawFlowBorder(drawList, x, y, cellW, cellH, 3.0f * scale);
 					} else {
-						drawList->AddRect(cellMin, cellMax, IM_COL32(79, 179, 255, (int)(255.0f * ease)), 8.0f * scale, 0, 2.0f * scale);
+						drawList->AddRect(cellMin, cellMax, IM_COL32(79, 179, 255, (int)(255.0f * ease)), 0.0f, 0, 2.0f * scale);
 					}
 				} else {
 					drawList->AddRect(cellMin, cellMax, rowBorder, 8.0f * scale, 0, 1.0f * scale);
 				}
-				// Snapshot placeholder on the right half (screenshots land
-				// here later, mirroring the launcher's save-state items).
-				const float snapX = x + cellW * 0.55f;
-				const float snapW = cellW * 0.45f - 10.0f * scale;
+				// Snapshot thumbnail on the left (screenshots land here later).
+				const float snapX = x + 8.0f * scale;
+				const float snapW = cellW * 0.40f - 8.0f * scale;
 				const float snapY = y + 8.0f * scale;
 				const float snapH = cellH - 16.0f * scale;
 				drawList->AddRectFilled(ImVec2(snapX, snapY), ImVec2(snapX + snapW, snapY + snapH),
@@ -1342,20 +1356,23 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 					ImVec2(snapX + snapW * 0.5f - snapIconSize * 0.5f,
 						snapY + snapH * 0.5f - snapIconSize * 0.43f),
 					IM_COL32(160, 200, 230, (int)(110.0f * ease)), snapIcon);
-				// Left half: icon + title + status.
-				const float iconX = x + 14.0f * scale;
-				const float iconCenterY = y + cellH * 0.5f;
-				char icon[8];
-				EncodeUtf8(icon, 0xE161);
-				drawList->AddText(font, 34.0f * scale, ImVec2(iconX, iconCenterY - 34.0f * scale * 0.43f),
-					slotInUse_[slot] ? (focused ? white : cyan) : muted, icon);
-				const float textX = iconX + 44.0f * scale;
+				// Right side: slot name + save time.
+				const float textX = snapX + snapW + 12.0f * scale;
 				const std::string title = "存档槽 " + std::to_string(slot + 1);
-				drawList->AddText(font, 20.0f * scale, ImVec2(textX, y + 24.0f * scale),
+				drawList->AddText(font, 20.0f * scale, ImVec2(textX, y + 26.0f * scale),
 					focused ? white : muted, title.c_str());
-				const char *status = slotInUse_[slot] ? "已有存档" : "空存档槽";
-				drawList->AddText(font, 16.0f * scale, ImVec2(textX, y + cellH - 40.0f * scale),
-					slotInUse_[slot] ? cyan : muted, status);
+				if (slotInUse_[slot]) {
+					char timeBuf[32]{};
+					const time_t mtime = slotMtime_[slot];
+					std::tm tm{};
+					localtime_r(&mtime, &tm);
+					std::strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M", &tm);
+					drawList->AddText(font, 16.0f * scale, ImVec2(textX, y + cellH - 42.0f * scale),
+						cyan, timeBuf);
+				} else {
+					drawList->AddText(font, 16.0f * scale, ImVec2(textX, y + cellH - 42.0f * scale),
+						muted, "空存档槽");
+				}
 			}
 		}
 		// Scroll position hint above the footer (右下角提示文字上方).
