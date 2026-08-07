@@ -1141,9 +1141,9 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 	const float height = displaySize.y;
 	const ImVec2 min(0.0f, 0.0f);
 	const ImVec2 max(min.x + width, min.y + height);
-	const char *tabs[] = {"返回游戏", "保存状态", "读取状态", "金手指", "画面设置", "功能设置", "重置游戏", "退出游戏"};
+	const std::string tabs[] = {tr("返回游戏"), tr("保存状态"), tr("读取状态"), tr("金手指"), tr("画面设置"), tr("功能设置"), tr("重置游戏"), tr("退出游戏")};
 	const int icons[] = {0xE5C4, 0xE161, 0xE2C6, 0xE3AE, 0xE333, 0xE8B8, 0xE5D5, 0xE879};
-	const char *descriptions[] = {"继续当前游戏。", "创建即时存档。", "读取即时存档。", "管理游戏金手指。", "调整渲染分辨率和画面比例。", "调整可即时生效的核心选项。", "重新启动当前游戏。", "返回 GBAStation。"};
+	const std::string descriptions[] = {tr("继续当前游戏。"), tr("创建即时存档。"), tr("读取即时存档。"), tr("管理游戏金手指。"), tr("调整渲染分辨率和画面比例。"), tr("调整可即时生效的核心选项。"), tr("重新启动当前游戏。"), tr("返回 GBAStation。")};
 	const int active = tabSelection_;
 
 	// 3DS palette
@@ -1170,7 +1170,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 	}
 
 	// Title
-	drawList->AddText(font, 26.0f * scale, ImVec2(64.0f * scale, 58.0f * scale), white, "游戏菜单");
+	drawList->AddText(font, 26.0f * scale, ImVec2(64.0f * scale, 58.0f * scale), white, tr("游戏菜单").c_str());
 	drawList->AddRectFilled(ImVec2(56.0f * scale, 92.0f * scale),
 		ImVec2(width - 56.0f * scale, 93.0f * scale), IM_COL32(255, 255, 255, (int)(46.0f * ease)));
 
@@ -1203,7 +1203,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		drawList->AddText(font, 25.0f * scale, ImVec2(sidebarX + 34.0f * scale, y + itemH * 0.5f - 12.5f * scale),
 			selected ? white : muted, iconBuf);
 		drawList->AddText(font, 21.0f * scale, ImVec2(sidebarX + 64.0f * scale, textY),
-			selected ? white : muted, tabs[i]);
+			selected ? white : muted, tabs[i].c_str());
 	}
 	// Reset separator
 	drawList->AddRectFilled(ImVec2(sidebarX + 18.0f * scale, sidebarY + 6.0f * step - 9.0f * scale),
@@ -1224,7 +1224,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 	const float rowGap = 4.0f * scale;
 
 	// Header + title underline
-	drawList->AddText(font, 27.0f * scale, ImVec2(contentX, 116.0f * scale), white, tabs[active]);
+	drawList->AddText(font, 27.0f * scale, ImVec2(contentX, 116.0f * scale), white, tabs[active].c_str());
 	drawList->AddRectFilled(ImVec2(contentX, 162.0f * scale),
 		ImVec2(contentX + contentW, 163.0f * scale), IM_COL32(0, 122, 204, (int)(71.0f * ease)));
 
@@ -1358,7 +1358,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 					IM_COL32(160, 200, 230, (int)(110.0f * ease)), snapIcon);
 				// Right side: slot name + save time.
 				const float textX = snapX + snapW + 12.0f * scale;
-				const std::string title = "存档槽 " + std::to_string(slot + 1);
+				const std::string title = tr("存档槽 ") + std::to_string(slot + 1);
 				drawList->AddText(font, 20.0f * scale, ImVec2(textX, y + 26.0f * scale),
 					focused ? white : muted, title.c_str());
 				if (slotInUse_[slot]) {
@@ -1371,7 +1371,7 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 						cyan, timeBuf);
 				} else {
 					drawList->AddText(font, 16.0f * scale, ImVec2(textX, y + cellH - 42.0f * scale),
-						muted, "空存档槽");
+						muted, tr("空存档槽").c_str());
 				}
 			}
 		}
@@ -1384,8 +1384,8 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 			IM_COL32(184, 204, 224, (int)(160.0f * ease)), scrollHint.c_str());
 	} else if (menu_ == Menu::Cheats) {
 		if (cheats_.empty()) {
-			drawList->AddText(font, 21.0f * scale, ImVec2(contentX, viewTop + 28.0f * scale), muted, "当前游戏没有可用金手指。");
-			drawList->AddText(font, 20.0f * scale, ImVec2(contentX, viewTop + 100.0f * scale), muted, "已加载的金手指会在这里显示");
+			drawList->AddText(font, 21.0f * scale, ImVec2(contentX, viewTop + 28.0f * scale), muted, tr("当前游戏没有可用金手指。").c_str());
+			drawList->AddText(font, 20.0f * scale, ImVec2(contentX, viewTop + 100.0f * scale), muted, tr("已加载的金手指会在这里显示").c_str());
 		} else {
 			const int visible = std::min(9, (int)cheats_.size());
 			const int first = std::clamp(selection_ - visible / 2, 0, std::max(0, (int)cheats_.size() - visible));
@@ -1394,30 +1394,30 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 				char icon[8];
 				EncodeUtf8(icon, 0xE3AE);
 				drawRow(row, inContent && index == selection_, icon, cheats_[index].name,
-					cheats_[index].enabled ? "开启" : "关闭", false);
+					cheats_[index].enabled ? tr("开启") : tr("关闭"), false);
 			}
 		}
 	} else if (menu_ == Menu::Settings) {
 		char icon[8];
 		if (coreSettingsPage_) {
-			const char *labels[] = {
-				"跳帧", "自动跳帧", "快速内存", "硬件变换",
-				"跳过缓冲区效果", "垂直同步", "纹理过滤", "各向异性过滤", "纹理去色带"};
+			const std::string labels[] = {
+				tr("跳帧"), tr("自动跳帧"), tr("快速内存"), tr("硬件变换"),
+				tr("跳过缓冲区效果"), tr("垂直同步"), tr("纹理过滤"), tr("各向异性过滤"), tr("纹理去色带")};
 			const int rowIcons[] = {0xE8B8, 0xE8E5, 0xE896, 0xE3B6, 0xE428, 0xE8F1, 0xE3F4, 0xE3F4, 0xE873};
-			auto enabled = [](bool value) { return value ? std::string("开启") : std::string("关闭"); };
+			auto enabled = [](bool value) { return value ? std::string(tr("开启")) : std::string(tr("关闭")); };
 			auto settingValue = [&](int index) {
 				switch (index) {
-				case 0: return g_Config.iFrameSkip == 0 ? std::string("关闭") : std::to_string(g_Config.iFrameSkip) + " 帧";
+				case 0: return g_Config.iFrameSkip == 0 ? std::string(tr("关闭")) : std::to_string(g_Config.iFrameSkip) + tr(" 帧");
 				case 1: return enabled(g_Config.bAutoFrameSkip);
 				case 2: return enabled(g_Config.bFastMemory);
 				case 3: return enabled(g_Config.bHardwareTransform);
 				case 4: return enabled(g_Config.bSkipBufferEffects);
 				case 5: return enabled(g_Config.bVSync);
 				case 6: {
-					const char *filters[] = {"默认", "自动", "最近邻", "线性", "高质量"};
+					const std::string filters[] = {tr("默认"), tr("自动"), tr("最近邻"), tr("线性"), tr("高质量")};
 					return std::string(filters[std::clamp(g_Config.iTexFiltering, 0, 4)]);
 				}
-				case 7: return g_Config.iAnisotropyLevel == 0 ? std::string("关闭") : std::to_string(1 << g_Config.iAnisotropyLevel) + "x";
+				case 7: return g_Config.iAnisotropyLevel == 0 ? std::string(tr("关闭")) : std::to_string(1 << g_Config.iAnisotropyLevel) + "x";
 				default: return enabled(g_Config.bTexDeposterize);
 				}
 			};
@@ -1432,11 +1432,11 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 			}
 		} else {
 			// 画面设置: resolution moved here from the core page.
-			const char *labels[] = {"渲染分辨率", "显示模式", "画面比例"};
+			const std::string labels[] = {tr("渲染分辨率"), tr("显示模式"), tr("画面比例")};
 			const int rowIcons[] = {0xE333, 0xE8F1, 0xE3F4};
 			auto settingValue = [&](int index) {
 				if (index == 0) {
-					return g_Config.iInternalResolution == 0 ? std::string("自动") : std::to_string(g_Config.iInternalResolution) + "x";
+					return g_Config.iInternalResolution == 0 ? std::string(tr("自动")) : std::to_string(g_Config.iInternalResolution) + "x";
 				}
 				if (index == 1) {
 					return TranslatedDisplayModeLabel(displaySettings_.mode);
@@ -1451,22 +1451,22 @@ void Overlay::DrawMenu(ImDrawList *drawList, ImVec2 displaySize, float scale, fl
 		}
 	} else {
 		drawList->AddText(font, 20.0f * scale, ImVec2(contentX, 310.0f * scale),
-			IM_COL32(204, 230, 250, (int)(219.0f * ease)), descriptions[active]);
+			IM_COL32(204, 230, 250, (int)(219.0f * ease)), descriptions[active].c_str());
 	}
 }
 
 void Overlay::DrawHelpers(ImDrawList *drawList, ImVec2 displaySize, float scale, float ease) {
 	// 3DS-style footer: B and A button hints pinned to the bottom right.
-	const char *bLabel = (sidebarFocused_ || menu_ == Menu::Quick) ? "返回" : "返回列表";
-	const char *aLabel = nullptr;
+	const std::string bLabel = (sidebarFocused_ || menu_ == Menu::Quick) ? tr("返回") : tr("返回列表");
+	std::string aLabel;
 	if (menu_ == Menu::SaveStates) {
-		aLabel = saveStateMode_ == OverlayAction::SaveState ? "保存" : "读取";
+		aLabel = saveStateMode_ == OverlayAction::SaveState ? tr("保存") : tr("读取");
 	} else if (menu_ == Menu::Cheats) {
-		aLabel = "切换";
+		aLabel = tr("切换");
 	} else if (menu_ == Menu::Settings) {
-		aLabel = "调整";
+		aLabel = tr("调整");
 	} else {
-		aLabel = "确定";
+		aLabel = tr("确定");
 	}
 
 	ImFont *font = ImGui::GetFont();
@@ -1476,9 +1476,9 @@ void Overlay::DrawHelpers(ImDrawList *drawList, ImVec2 displaySize, float scale,
 	EncodeUtf8(iconA, 0xE0E0);
 	const float baseY = displaySize.y - 42.0f * scale;
 	drawList->AddText(font, 27.0f * scale, ImVec2(1020.0f * scale, baseY - 27.0f * scale * 0.5f), hintColor, iconB);
-	drawList->AddText(font, 19.0f * scale, ImVec2(1042.0f * scale, baseY - 19.0f * scale * 0.5f), hintColor, bLabel);
+	drawList->AddText(font, 19.0f * scale, ImVec2(1042.0f * scale, baseY - 19.0f * scale * 0.5f), hintColor, bLabel.c_str());
 	drawList->AddText(font, 27.0f * scale, ImVec2(1152.0f * scale, baseY - 27.0f * scale * 0.5f), hintColor, iconA);
-	drawList->AddText(font, 19.0f * scale, ImVec2(1174.0f * scale, baseY - 19.0f * scale * 0.5f), hintColor, aLabel);
+	drawList->AddText(font, 19.0f * scale, ImVec2(1174.0f * scale, baseY - 19.0f * scale * 0.5f), hintColor, aLabel.c_str());
 }
 
 void Overlay::DrawRAAlerts(Draw::DrawContext *draw, ImDrawList *drawList, ImVec2 displaySize, float scale, float deltaTime) {

@@ -94,6 +94,42 @@ bool TranslationManager::Init(LogCallback log) {
 }
 
 std::string TranslationManager::ReadConfiguredLanguage() const {
+	// Prefer the launcher's UI.language (config.cfg, values zh-CN / en-US).
+	const char *const uiConfigPaths[] = {
+		"sdmc:/GBAStation/config/config.cfg",
+		"/GBAStation/config/config.cfg",
+	};
+
+	for (const char *path : uiConfigPaths) {
+		std::ifstream file(path);
+		if (!file.good()) {
+			continue;
+		}
+
+		std::string line;
+		while (std::getline(file, line)) {
+			const size_t equals = line.find('=');
+			if (equals == std::string::npos) {
+				continue;
+			}
+			const std::string key = line.substr(0, equals);
+			if (key != "UI.language") {
+				continue;
+			}
+			std::string value = line.substr(equals + 1);
+			if (!value.empty() && value.front() == '"' && value.back() == '"' && value.size() >= 2) {
+				value = value.substr(1, value.size() - 2);
+			}
+			if (value == "en-US" || value == "en") {
+				return "English";
+			}
+			if (value == "zh-CN" || value == "zh-Hans" || value == "zh") {
+				return "Chinese";
+			}
+		}
+	}
+
+	// Fall back to general.jsonc "language" for standalone launches.
 	const char *const configPaths[] = {
 		"sdmc:/GBAStation/config/general.jsonc",
 	};
