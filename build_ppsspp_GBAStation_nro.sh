@@ -91,9 +91,22 @@ if command -v git >/dev/null 2>&1 && [ -d "${SCRIPT_DIR}/.git" ]; then
 		if grep -Fq 'defined(__SWITCH__)' "${AEMU_SOCKET_HEADER}"; then
 			echo "aemu_postoffice Switch socket patch already applied."
 		else
-			git -C "${AEMU_POSTOFFICE_DIR}" apply --check "${AEMU_POSTOFFICE_PATCH}"
-			git -C "${AEMU_POSTOFFICE_DIR}" apply "${AEMU_POSTOFFICE_PATCH}"
-			echo "Applied aemu_postoffice Switch socket patch."
+			# The submodule content can drift from the patch baseline (CI
+			# submodule caches / branch tracking).  Instead of relying on a
+			# context-sensitive apply, force the single guard line so the
+			# build never depends on the upstream file's exact shape.
+			if git -C "${AEMU_POSTOFFICE_DIR}" apply --check "${AEMU_POSTOFFICE_PATCH}" 2>/dev/null; then
+				git -C "${AEMU_POSTOFFICE_DIR}" apply "${AEMU_POSTOFFICE_PATCH}"
+				echo "Applied aemu_postoffice Switch socket patch."
+			else
+				sed -i 's/^#if defined(__unix) || defined(__APPLE__) || defined(__PSP__)$/#if defined(__unix) || defined(__APPLE__) || defined(__PSP__) || defined(__SWITCH__)/' \
+					"${AEMU_SOCKET_HEADER}"
+				if ! grep -Fq 'defined(__SWITCH__)' "${AEMU_SOCKET_HEADER}"; then
+					echo "ERROR: could not patch ${AEMU_SOCKET_HEADER} for Switch builds" >&2
+					exit 1
+				fi
+				echo "Applied aemu_postoffice Switch socket patch (forced)."
+			fi
 		fi
 	fi
 fi
