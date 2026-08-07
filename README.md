@@ -548,3 +548,27 @@ See [history.md](history.md).
 [#21652]: https://github.com/hrydgard/ppsspp/issues/21652 "Critical bug in the remote debugger"
 [#21665]: https://github.com/hrydgard/ppsspp/issues/21665 "Raw screenshot cropping fix"
 [#21660]: https://github.com/hrydgard/ppsspp/issues/21660 "Remove the mfplat.dll hard dependency (now fully dynamic)."
+---
+
+## Build (GBAStation Nintendo Switch port)
+
+Requires a sibling `switchVK` checkout and devkitPro (devkitA64). The output
+`GBAStationPPSSPPStub.nro` is written to the repository root.
+
+```bash
+# 普通完整编译
+bash build_local.sh
+
+# 清理后完整编译
+bash build_local.sh --clean
+
+# 指定线程数
+bash build_local.sh -j 8
+```
+
+`build_local.sh` selects the switchVK SDK via `SWITCH_NVK_ROOT` (or the
+sibling `switchVK/nvk-switch-*` directory) and drives
+`build_ppsspp_GBAStation_nro.sh`. The aemu_postoffice socket patch and other
+Switch-specific adjustments are applied automatically during the build.
+Pushing a `v*` tag runs the release CI build against the latest published
+switchVK SDK.
